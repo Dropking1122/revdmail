@@ -242,10 +242,10 @@
                     <div class="flex items-center gap-2 ml-auto">
                         <!-- Active email pill -->
                         <button onclick="copyEmail()" id="activeEmailDisplay"
-                            class="hidden sm:flex items-center gap-2 px-3 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 rounded-2xl text-sm font-semibold border border-primary-100 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-all active:scale-95"
+                            class="hidden sm:flex items-center gap-2 px-3 py-2 min-w-0 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 rounded-2xl text-sm font-semibold border border-primary-100 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-all active:scale-95 overflow-hidden"
                             title="Click to copy">
                             <ion-icon name="mail-outline" class="text-base shrink-0"></ion-icon>
-                            <span id="currentEmailText" class="truncate max-w-[130px] lg:max-w-[220px]">Loading…</span>
+                            <span id="currentEmailText" class="truncate min-w-0">Loading…</span>
                             <ion-icon name="copy-outline" class="text-base shrink-0"></ion-icon>
                         </button>
 
@@ -277,9 +277,9 @@
                 <!-- Mobile email bar -->
                 <div class="flex sm:hidden items-center gap-2 px-4 pb-3">
                     <button onclick="copyEmail()"
-                        class="flex-1 flex items-center gap-2 px-3 py-2.5 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 rounded-2xl text-sm font-semibold border border-primary-100 dark:border-primary-800 hover:bg-primary-100 transition-all active:scale-95">
+                        class="flex-1 min-w-0 flex items-center gap-2 px-3 py-2.5 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 rounded-2xl text-sm font-semibold border border-primary-100 dark:border-primary-800 hover:bg-primary-100 transition-all active:scale-95 overflow-hidden">
                         <ion-icon name="mail-outline" class="text-base shrink-0"></ion-icon>
-                        <span id="mobileEmailText" class="truncate flex-1">Loading…</span>
+                        <span id="mobileEmailText" class="truncate min-w-0 flex-1">Loading…</span>
                         <ion-icon name="copy-outline" class="text-base shrink-0"></ion-icon>
                     </button>
                 </div>
