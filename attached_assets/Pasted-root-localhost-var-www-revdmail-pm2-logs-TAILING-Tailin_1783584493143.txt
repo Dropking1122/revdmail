@@ -1,0 +1,42 @@
+root@localhost:/var/www/revdmail# pm2 logs
+[TAILING] Tailing last 15 lines for [all] processes (change the value with --lines option)
+/root/.pm2/pm2.log last 15 lines:
+PM2        | 2026-07-06T22:34:16: PM2 log: PM2 home             : /root/.pm2
+PM2        | 2026-07-06T22:34:16: PM2 log: PM2 PID file         : /root/.pm2/pm2.pid
+PM2        | 2026-07-06T22:34:16: PM2 log: RPC socket file      : /root/.pm2/rpc.sock
+PM2        | 2026-07-06T22:34:16: PM2 log: BUS socket file      : /root/.pm2/pub.sock
+PM2        | 2026-07-06T22:34:16: PM2 log: Application log path : /root/.pm2/logs
+PM2        | 2026-07-06T22:34:16: PM2 log: Worker Interval      : 30000
+PM2        | 2026-07-06T22:34:16: PM2 log: Process dump file    : /root/.pm2/dump.pm2
+PM2        | 2026-07-06T22:34:16: PM2 log: Concurrent actions   : 2
+PM2        | 2026-07-06T22:34:16: PM2 log: SIGTERM timeout      : 1600
+PM2        | 2026-07-06T22:34:16: PM2 log: Runtime Binary       : /root/.nvm/versions/node/v22.23.1/bin/nodePM2        | 2026-07-06T22:34:16: PM2 log: ===============================================================================
+PM2        | 2026-07-06T22:34:16: PM2 log: App [api-server:0] starting in -fork mode-
+PM2        | 2026-07-06T22:34:16: PM2 log: App [api-server:0] online
+PM2        | 2026-07-09T15:26:19: PM2 log: App [revdmail:1] starting in -fork mode-
+PM2        | 2026-07-09T15:26:19: PM2 log: App [revdmail:1] online
+
+/root/.pm2/logs/api-server-error.log last 15 lines:
+/root/.pm2/logs/revdmail-error.log last 15 lines:
+/root/.pm2/logs/revdmail-out.log last 15 lines:
+1|revdmail | [dotenv@17.2.3] injecting env (7) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+1|revdmail | ✅ Server running at http://0.0.0.0:3000
+1|revdmail | 🔌 Connecting to IMAP...
+
+/root/.pm2/logs/api-server-out.log last 15 lines:
+0|api-serv | {"level":30,"time":1783582385044,"pid":144644,"hostname":"localhost","req":{"id":794,"method":"GET","url":"/.env.backup"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582387267,"pid":144644,"hostname":"localhost","req":{"id":795,"method":"GET","url":"/.env.old"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582390709,"pid":144644,"hostname":"localhost","req":{"id":796,"method":"GET","url":"/.env.save"},"res":{"statusCode":404},"responseTime":0,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582393225,"pid":144644,"hostname":"localhost","req":{"id":797,"method":"GET","url":"/.env.bak"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582396700,"pid":144644,"hostname":"localhost","req":{"id":798,"method":"GET","url":"/.env.prod"},"res":{"statusCode":404},"responseTime":0,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582399240,"pid":144644,"hostname":"localhost","req":{"id":799,"method":"GET","url":"/.env.production"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582402573,"pid":144644,"hostname":"localhost","req":{"id":800,"method":"GET","url":"/.env.staging"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582404991,"pid":144644,"hostname":"localhost","req":{"id":801,"method":"GET","url":"/.env.local"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582408466,"pid":144644,"hostname":"localhost","req":{"id":802,"method":"GET","url":"/.envrc"},"res":{"statusCode":404},"responseTime":0,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582410735,"pid":144644,"hostname":"localhost","req":{"id":803,"method":"GET","url":"/env"},"res":{"statusCode":404},"responseTime":0,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582413866,"pid":144644,"hostname":"localhost","req":{"id":804,"method":"GET","url":"/config/.env"},"res":{"statusCode":404},"responseTime":2,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582416978,"pid":144644,"hostname":"localhost","req":{"id":805,"method":"GET","url":"/app/.env"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582419327,"pid":144644,"hostname":"localhost","req":{"id":806,"method":"GET","url":"/../.env"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582544941,"pid":144644,"hostname":"localhost","req":{"id":807,"method":"GET","url":"/"},"res":{"statusCode":404},"responseTime":1,"msg":"request completed"}
+0|api-serv | {"level":30,"time":1783582545147,"pid":144644,"hostname":"localhost","req":{"id":808,"method":"GET","url":"/favicon.ico"},"res":{"statusCode":404},"responseTime":0,"msg":"request completed"}
+
