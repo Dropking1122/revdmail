@@ -5,6 +5,8 @@ let pollingInterval = null;
 let allMessages = [];
 let availableDomains = [];
 let selectedDomain = '';
+let consecutiveEmptyPolls = 0;
+const EMPTY_POLLS_BEFORE_CLEAR = 3; // require 3 consecutive empty polls before wiping the list
 
 // DOM Elements
 const activeEmailDisplay = document.getElementById('activeEmailDisplay');
@@ -161,6 +163,7 @@ async function generateEmail() {
             currentEmail = data.email;
             localStorage.setItem('currentEmail', currentEmail);
             allMessages = [];
+            consecutiveEmptyPolls = 0;
             filterAndRender();
             updateCurrentEmailUI();
             startPolling();
@@ -190,13 +193,28 @@ async function fetchMessages() {
         const data = await res.json();
 
         if (data.error) {
+            // IMAP transient error — don't wipe existing messages
             console.warn('API error:', data.error);
             return;
         }
 
         if (Array.isArray(data.messages)) {
-            allMessages = data.messages;
-            filterAndRender();
+            if (data.messages.length > 0) {
+                // Got real messages — update and reset the empty-poll counter
+                consecutiveEmptyPolls = 0;
+                allMessages = data.messages;
+                filterAndRender();
+            } else {
+                // Empty result — could be IMAP reconnect race condition.
+                // Only clear the list after EMPTY_POLLS_BEFORE_CLEAR consecutive
+                // empty responses to avoid a transient reconnect wiping messages.
+                consecutiveEmptyPolls++;
+                if (consecutiveEmptyPolls >= EMPTY_POLLS_BEFORE_CLEAR) {
+                    allMessages = [];
+                    filterAndRender();
+                }
+                // else: keep showing the previous messages until confirmed empty
+            }
         }
     } catch (err) {
         console.error('❌ Error fetching messages:', err);
@@ -519,6 +537,7 @@ async function accessExistingEmail() {
     currentEmail = email;
     localStorage.setItem('currentEmail', currentEmail);
     allMessages = [];
+    consecutiveEmptyPolls = 0;
     filterAndRender();
     updateCurrentEmailUI();
     closeAccessModal();

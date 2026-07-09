@@ -118,10 +118,15 @@ async function getSpecialFolders(connection) {
     return cachedFolders;
 }
 
+// Track whether the connection is freshly established (to enable retry on empty)
+let connectionIsNew = false;
+
 async function fetchImapMessages(tempEmail, limit = 20) {
     let connection;
     try {
+        const wasConnected = !!(activeConnection && activeConnection.imap && activeConnection.imap.state === 'authenticated');
         connection = await getImapConnection();
+        connectionIsNew = !wasConnected;
         const { allMail, spam } = await getSpecialFolders(connection);
 
         const searchCriteria = [['HEADER', 'TO', tempEmail]];
@@ -173,6 +178,18 @@ async function fetchImapMessages(tempEmail, limit = 20) {
                 console.warn(`⚠️ Failed to fetch from Spam (${spam}):`, err.message);
             }
         }
+
+        // If this was a fresh reconnect and we got zero results, wait briefly
+        // and retry once — IMAP sometimes needs a moment after reconnect to
+        // surface all messages (Gmail idle-timeout reconnect race condition).
+        if (messageMap.size === 0 && connectionIsNew) {
+            connectionIsNew = false;
+            console.log('🔄 Fresh connection returned 0 messages — retrying in 2s...');
+            await new Promise(r => setTimeout(r, 2000));
+            try { await fetchFromFolder(allMail); } catch (_) {}
+            if (spam) { try { await fetchFromFolder(spam); } catch (_) {} }
+        }
+        connectionIsNew = false;
 
         // Sort by date descending and take the most recent
         const allMessages = Array.from(messageMap.values())
