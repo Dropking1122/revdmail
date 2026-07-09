@@ -1,0 +1,94 @@
+const axios = require('axios');
+const RULE_NAME_PREFIX = "temp_email_api:";
+
+async function createCloudflareRoute(apiToken, zoneId, tempEmail, destinationEmail) {
+    const apiEndpoint = `https://api.cloudflare.com/client/v4/zones/${zoneId}/email/routing/rules`;
+    const ruleName = `${RULE_NAME_PREFIX} ${tempEmail}`;
+    const payload = {
+        actions: [{ type: "forward", value: [destinationEmail] }],
+        matchers: [{ field: "to", type: "literal", value: tempEmail }],
+        enabled: true,
+        name: ruleName,
+        priority: 50
+    };
+
+    try {
+        console.log(`Attempting to create Cloudflare route for ${tempEmail}`);
+        const response = await axios.post(apiEndpoint, payload, {
+            headers: {
+                "Authorization": `Bearer ${apiToken}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (response.data.success) {
+            console.log(`Successfully created routing rule for ${tempEmail}`);
+            return { success: true };
+        } else {
+            return { success: false, errors: response.data.errors };
+        }
+    } catch (error) {
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        console.error(`Error creating Cloudflare route: ${errorMsg}`);
+        return { success: false, errors: errorMsg };
+    }
+}
+
+async function getAllCloudflareRules(apiToken, zoneId) {
+    let allRules = [];
+    let page = 1;
+    const apiEndpoint = `https://api.cloudflare.com/client/v4/zones/${zoneId}/email/routing/rules`;
+
+    while (true) {
+        try {
+            const response = await axios.get(apiEndpoint, {
+                headers: { "Authorization": `Bearer ${apiToken}` },
+                params: { page: page, per_page: 50 }
+            });
+
+            if (!response.data.success) return { rules: null, error: response.data.errors };
+
+            const rules = response.data.result || [];
+            if (rules.length === 0) break;
+
+            allRules = allRules.concat(rules);
+
+            const totalPages = (response.data.result_info && response.data.result_info.total_pages) || 1;
+            if (page >= totalPages) break;
+            page++;
+        } catch (error) {
+            const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+            console.error(`Error listing rules: ${errorMsg}`);
+            return { rules: null, error: errorMsg };
+        }
+    }
+    return { rules: allRules, error: null };
+}
+
+async function deleteCloudflareRule(apiToken, zoneId, ruleId) {
+    const deleteEndpoint = `https://api.cloudflare.com/client/v4/zones/${zoneId}/email/routing/rules/${ruleId}`;
+    try {
+        console.log(`Deleting Cloudflare rule ID ${ruleId}`);
+        const response = await axios.delete(deleteEndpoint, {
+            headers: { "Authorization": `Bearer ${apiToken}` }
+        });
+
+        if (response.data.success) return { success: true };
+        return { success: false, errors: response.data.errors };
+    } catch (error) {
+        if (error.response && error.response.status === 404) {
+            console.warn(`Rule ID ${ruleId} not found during deletion.`);
+            return { success: true };
+        }
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        console.error(`Error deleting Cloudflare rule: ${errorMsg}`);
+        return { success: false, errors: errorMsg };
+    }
+}
+
+module.exports = {
+    createCloudflareRoute,
+    getAllCloudflareRules,
+    deleteCloudflareRule,
+    RULE_NAME_PREFIX
+};

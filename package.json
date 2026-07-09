@@ -1,0 +1,20 @@
+{
+  "name": "cloudflare-temp-mail",
+  "version": "1.0.0",
+  "description": "Temporary Email Service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "RevdStore",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.9.1"
+  }
+}

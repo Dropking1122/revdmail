@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Temporary email service with instant inbox access">
+    <title>TempMail - Modern Email Service</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply font-sans bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300;
+            }
+        }
+
+        @layer components {
+            .modal {
+                @apply fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-all duration-300;
+            }
+            .modal.active {
+                @apply flex;
+            }
+            .btn-primary {
+                @apply flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-primary-500/20 active:scale-95;
+            }
+            .btn-secondary {
+                @apply flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-semibold transition-all active:scale-95;
+            }
+            .nav-item {
+                @apply flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer;
+            }
+            .nav-item.active {
+                @apply bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 font-semibold;
+            }
+            .sidebar-mobile {
+                @apply fixed inset-y-0 left-0 z-[60] w-72 bg-white dark:bg-slate-900 transform -translate-x-full transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 border-r border-slate-200 dark:border-slate-800 shadow-2xl lg:shadow-none;
+            }
+            .sidebar-mobile.active {
+                @apply translate-x-0;
+            }
+            .email-row {
+                @apply grid grid-cols-[1fr_auto] md:grid-cols-[200px_1fr_100px] gap-4 p-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                @apply w-1.5;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                @apply bg-transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                @apply bg-slate-200 dark:bg-slate-800 rounded-full;
+            }
+        }
+
+        /* Custom styles for elements not easily handled by Tailwind */
+        #emailDetailView {
+            display: none;
+        }
+        #emailDetailView.active {
+            display: flex;
+        }
+        .selector-options {
+            display: none;
+        }
+        .custom-domain-selector.active .selector-options {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+    <!-- Dark Mode Init Script -->
+    <script>
+        if (localStorage.getItem('darkMode') === 'true' || (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="sidebar-mobile sidebar flex flex-col p-6 gap-6 shrink-0">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                    <ion-icon name="mail-unread" class="text-white text-2xl"></ion-icon>
+                </div>
+                <span class="text-xl font-bold tracking-tight text-slate-800 dark:text-white">REVDMAIL</span>
+            </div>
+            <button class="lg:hidden text-2xl text-slate-500" onclick="toggleSidebar()">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="flex flex-col gap-3">
+            <button class="btn-primary w-full" id="generateBtn">
+                <ion-icon name="add-outline" class="text-xl"></ion-icon>
+                <span>New Address</span>
+            </button>
+
+            <button class="btn-secondary w-full" id="accessBtn">
+                <ion-icon name="log-in-outline" class="text-xl"></ion-icon>
+                <span>Access Email</span>
+            </button>
+        </div>
+
+        <nav class="flex-1 mt-4">
+            <ul class="flex flex-col gap-1">
+                <li class="nav-item active">
+                    <ion-icon name="mail-outline" class="text-xl"></ion-icon>
+                    <span>Inbox</span>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                <span class="text-sm font-medium px-2 text-slate-600 dark:text-slate-400">Theme</span>
+                <button id="themeToggle" class="w-10 h-10 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-yellow-400 shadow-sm transition-all active:scale-90">
+                    <ion-icon id="themeIcon" name="sunny-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 lg:m-4 lg:rounded-3xl lg:shadow-2xl lg:shadow-slate-200/50 dark:lg:shadow-none overflow-hidden relative">
+        
+        <!-- Header -->
+        <header class="h-20 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 gap-4">
+            <div class="flex items-center gap-4 flex-1">
+                <button class="mobile-menu-btn lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300" onclick="toggleSidebar()">
+                    <ion-icon name="menu-outline" class="text-2xl"></ion-icon>
+                </button>
+                
+                <div class="relative flex-1 max-w-xl hidden md:block">
+                    <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
+                        <ion-icon name="search-outline"></ion-icon>
+                    </div>
+                    <input type="search" id="searchInput" placeholder="Search in mail..." 
+                        class="w-full pl-11 pr-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 transition-all text-sm dark:text-white"
+                        autocomplete="off">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div id="activeEmailDisplay" class="hidden sm:flex items-center gap-2 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 rounded-xl font-medium text-sm cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-all border border-primary-100 dark:border-primary-900/30">
+                    <span id="currentEmailText" class="truncate max-w-[150px] lg:max-w-[250px]">Loading...</span>
+                    <ion-icon name="copy-outline"></ion-icon>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <button onclick="generateEmail()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all" title="Random Email">
+                        <ion-icon name="dice-outline" class="text-xl"></ion-icon>
+                    </button>
+                    <button onclick="openCustomModal()" class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all" title="Custom Email">
+                        <ion-icon name="pencil-outline" class="text-xl"></ion-icon>
+                    </button>
+                </div>
+
+                <div class="custom-domain-selector relative" id="customDomainSelector">
+                    <button id="domainTrigger" class="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary-500 transition-all">
+                        <ion-icon name="globe-outline" class="text-primary-500"></ion-icon>
+                        <span id="selectedDomainText" class="hidden sm:inline">Domain</span>
+                        <ion-icon name="chevron-down-outline" class="text-xs opacity-50"></ion-icon>
+                    </button>
+                    <div id="domainOptions" class="selector-options absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 py-2 overflow-hidden">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Action Bar -->
+        <div class="px-6 py-3 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+                <button onclick="refreshInbox()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all" title="Refresh">
+                    <ion-icon name="refresh-outline" class="text-xl"></ion-icon>
+                </button>
+                <button onclick="deleteCurrentEmail()" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 dark:text-slate-400 hover:text-red-600 transition-all" title="Delete">
+                    <ion-icon name="trash-bin-outline" class="text-xl"></ion-icon>
+                </button>
+            </div>
+            
+            <!-- Mobile Email Display -->
+            <div class="sm:hidden flex-1 text-center px-4">
+                <div onclick="copyEmail()" class="inline-flex items-center gap-2 text-xs font-bold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-3 py-1.5 rounded-full border border-primary-100 dark:border-primary-900/30">
+                    <span id="mobileEmailText" class="truncate max-w-[120px]">Email...</span>
+                    <ion-icon name="copy-outline"></ion-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-hidden flex relative">
+            <!-- Email List -->
+            <section class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+                <div id="emailList" class="flex-1 overflow-y-auto custom-scrollbar">
+                    <!-- Emails injected via JS -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center p-12 text-center pointer-events-none opacity-0 transition-opacity duration-300">
+                    <div class="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6">
+                        <ion-icon name="mail-open-outline" class="text-5xl text-slate-300 dark:text-slate-700"></ion-icon>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">Your inbox is empty</h3>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm max-w-[200px]">Waiting for incoming messages...</p>
+                </div>
+            </section>
+
+            <!-- Email Detail View -->
+            <article id="emailDetailView" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex-col hidden animate-in slide-in-from-right duration-300">
+                <div id="detailContent" class="flex flex-col h-full">
+                    <header class="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-6 bg-slate-50/50 dark:bg-slate-800/20">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <button onclick="closeDetail()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                                    <ion-icon name="arrow-back-outline" class="text-xl"></ion-icon>
+                                </button>
+                                <h1 id="detailSubject" class="text-xl font-bold text-slate-900 dark:text-white leading-tight">Subject</h1>
+                            </div>
+                            <time id="detailDate" class="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap pt-3">Date</time>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <div id="senderAvatar" class="w-12 h-12 rounded-2xl bg-primary-600 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-primary-500/20">A</div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2 flex-wrap">
+                                    <span id="detailSenderName" class="font-bold text-slate-900 dark:text-white">Sender</span>
+                                    <span id="detailSenderEmail" class="text-sm text-slate-500 dark:text-slate-400 font-medium">sender@email.com</span>
+                                </div>
+                                <div class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                    <span>to</span>
+                                    <span id="detailRecipient" class="font-medium text-slate-600 dark:text-slate-300">me</span>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div id="detailBody" class="flex-1 overflow-y-auto p-8 prose dark:prose-invert max-w-none custom-scrollbar bg-white dark:bg-slate-900">
+                        <!-- Content -->
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <!-- Access Email Modal -->
+    <div id="accessModal" class="modal">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Access Inbox</h2>
+                <button onclick="closeAccessModal()" class="text-2xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="p-8">
+                <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Enter your temporary email address to access its inbox.</p>
+                <div class="relative mb-4">
+                    <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
+                        <ion-icon name="mail-outline"></ion-icon>
+                    </div>
+                    <input type="email" id="accessEmailInput" placeholder="example@revd.site" 
+                        class="w-full pl-11 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 transition-all text-sm dark:text-white"
+                        autocomplete="off">
+                </div>
+                <div class="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                    <ion-icon name="information-circle-outline" class="text-xl text-amber-600 dark:text-amber-400 shrink-0"></ion-icon>
+                    <p class="text-xs text-amber-800 dark:text-amber-300 font-medium">Only emails from our supported domains are accessible.</p>
+                </div>
+            </div>
+            <div class="p-6 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                <button onclick="closeAccessModal()" class="flex-1 px-6 py-3 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
+                <button onclick="accessExistingEmail()" class="flex-1 btn-primary">Access Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Email Modal -->
+    <div id="customModal" class="modal">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">Custom Address</h2>
+                <button onclick="closeCustomModal()" class="text-2xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="p-8">
+                <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create a personalized temporary email address.</p>
+                <div class="flex flex-col gap-4">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
+                            <ion-icon name="person-outline"></ion-icon>
+                        </div>
+                        <input type="text" id="customUsernameInput" placeholder="your-username" 
+                            class="w-full pl-11 pr-4 py-3.5 bg-slate-100 dark:bg-slate-800 border-none rounded-2xl focus:ring-2 focus:ring-primary-500 transition-all text-sm dark:text-white"
+                            autocomplete="off" maxlength="30">
+                    </div>
+                    <div class="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Domain</span>
+                        <span id="customModalDomainDisplay" class="text-sm font-bold text-primary-600 dark:text-primary-400">@domain</span>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                <button onclick="closeCustomModal()" class="flex-1 px-6 py-3 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">Cancel</button>
+                <button onclick="generateCustomEmail()" class="flex-1 btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl text-sm font-bold opacity-0 translate-y-8 transition-all duration-300 pointer-events-none flex items-center gap-3">
+        <ion-icon name="information-circle" class="text-xl text-primary-400"></ion-icon>
+        <span id="toastMessage">Message here</span>
+    </div>
+
+    <!-- Application Script -->
+    <script src="js/script.js"></script>
+    
+    <!-- Theme Toggle Script -->
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        
+        function updateThemeIcon() {
+            if (document.documentElement.classList.contains('dark')) {
+                themeIcon.setAttribute('name', 'moon-outline');
+            } else {
+                themeIcon.setAttribute('name', 'sunny-outline');
+            }
+        }
+        
+        updateThemeIcon();
+        
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('darkMode', isDark);
+            updateThemeIcon();
+        });
+
+        // Add small sync for mobile email display
+        const observer = new MutationObserver((mutations) => {
+            const emailText = document.getElementById('currentEmailText').textContent;
+            const mobileEmailText = document.getElementById('mobileEmailText');
+            if (mobileEmailText) mobileEmailText.textContent = emailText;
+        });
+        observer.observe(document.getElementById('currentEmailText'), { childList: true, characterData: true, subtree: true });
+    </script>
+</body>
+
+</html>
