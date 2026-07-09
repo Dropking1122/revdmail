@@ -2,25 +2,20 @@ const API_BASE = '/api';
 
 let currentEmail = null;
 let pollingInterval = null;
-let allMessages = []; // Store all fetched messages locally
-let availableDomains = ['revdserver.web.id']; // Default, populated from env
-let selectedDomain = 'revdserver.web.id';
+let allMessages = [];
+let availableDomains = [];
+let selectedDomain = '';
 
 // DOM Elements
 const activeEmailDisplay = document.getElementById('activeEmailDisplay');
 const currentEmailText = document.getElementById('currentEmailText');
 const emailListContainer = document.getElementById('emailList');
 const emptyState = document.getElementById('emptyState');
-// Custom Domain Selector Elements
 const customDomainSelector = document.getElementById('customDomainSelector');
 const domainTrigger = document.getElementById('domainTrigger');
 const domainOptions = document.getElementById('domainOptions');
 const selectedDomainText = document.getElementById('selectedDomainText');
-
-// Detail View elements
 const detailView = document.getElementById('emailDetailView');
-const detailContent = document.getElementById('detailContent');
-
 const detailSubject = document.getElementById('detailSubject');
 const detailSenderName = document.getElementById('detailSenderName');
 const detailSenderEmail = document.getElementById('detailSenderEmail');
@@ -28,11 +23,10 @@ const senderAvatar = document.getElementById('senderAvatar');
 const detailDate = document.getElementById('detailDate');
 const detailBody = document.getElementById('detailBody');
 const sidebar = document.getElementById('sidebar');
-
 const toast = document.getElementById('toast');
 const searchInput = document.getElementById('searchInput');
 
-// --- Domain Management ---
+// ─── Domain Management ───────────────────────────────────────────────────────
 
 async function loadDomainsFromAPI() {
     try {
@@ -51,55 +45,55 @@ async function loadDomainsFromAPI() {
 }
 
 async function initializeDomainSelector() {
-    if (!customDomainSelector || !domainOptions) {
-        return;
-    }
-
-    // Load domains from API first
     await loadDomainsFromAPI();
 
-    // Restore previously selected domain from localStorage
-    const savedDomain = localStorage.getItem('selectedDomain');
-    if (savedDomain && availableDomains.includes(savedDomain)) {
-        selectedDomain = savedDomain;
-    } else {
-        selectedDomain = availableDomains[0];
+    if (availableDomains.length === 0) {
+        availableDomains = ['example.com'];
     }
 
-    // Update UI
+    const savedDomain = localStorage.getItem('selectedDomain');
+    selectedDomain = (savedDomain && availableDomains.includes(savedDomain))
+        ? savedDomain
+        : availableDomains[0];
+
     renderDomainOptions();
 
-    // Toggle Event
     if (domainTrigger) {
         domainTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
             customDomainSelector.classList.toggle('active');
-            const isExpanded = customDomainSelector.classList.contains('active');
-            domainTrigger.setAttribute('aria-expanded', isExpanded);
+            domainTrigger.setAttribute('aria-expanded', customDomainSelector.classList.contains('active'));
         });
     }
 
-    // Close on click outside
     document.addEventListener('click', (e) => {
-        if (!customDomainSelector.contains(e.target)) {
+        if (customDomainSelector && !customDomainSelector.contains(e.target)) {
             customDomainSelector.classList.remove('active');
-            domainTrigger.setAttribute('aria-expanded', 'false');
+            if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
         }
     });
 }
 
 function renderDomainOptions() {
-    // Update Trigger Text
     if (selectedDomainText) {
         selectedDomainText.textContent = `@${selectedDomain}`;
     }
+    if (!domainOptions) return;
 
-    // Populate Options
+    const isDark = document.documentElement.classList.contains('dark');
+
     domainOptions.innerHTML = '';
     availableDomains.forEach(domain => {
-        const option = document.createElement('div');
-        option.className = `selector-option ${domain === selectedDomain ? 'selected' : ''}`;
+        const option = document.createElement('button');
+        const isSelected = domain === selectedDomain;
+        option.className = [
+            'w-full text-left px-4 py-3 text-sm font-medium rounded-xl transition-all',
+            isSelected
+                ? 'bg-primary-600 text-white font-semibold'
+                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+        ].join(' ');
         option.textContent = `@${domain}`;
+        option.setAttribute('type', 'button');
         option.addEventListener('click', (e) => {
             e.stopPropagation();
             selectDomain(domain);
@@ -109,7 +103,6 @@ function renderDomainOptions() {
 }
 
 async function selectDomain(domain) {
-    // If selecting the same domain, do nothing
     if (domain === selectedDomain) {
         customDomainSelector.classList.remove('active');
         if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
@@ -118,63 +111,35 @@ async function selectDomain(domain) {
 
     selectedDomain = domain;
     localStorage.setItem('selectedDomain', selectedDomain);
-
-    showToast(`Switching to @${selectedDomain}...`);
-
-    // Re-render to update selected state and text
     renderDomainOptions();
 
-    // Close dropdown
     customDomainSelector.classList.remove('active');
     if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
-    // Generate new email with the new domain immediately
+    showToast(`Switching to @${selectedDomain}…`);
     await generateEmail();
 }
 
-// --- Initialization ---
+// ─── Initialization ───────────────────────────────────────────────────────────
 
 async function init() {
-    // Try to load from localStorage first
     const savedEmail = localStorage.getItem('currentEmail');
     if (savedEmail) {
         currentEmail = savedEmail;
         updateCurrentEmailUI();
         startPolling();
-        showToast(`Accsess ${currentEmail}`);
+        showToast(`Accessing ${currentEmail}`);
         return;
     }
-
-    // Auto-generate if validation fails or empty
-    if (!currentEmail) {
-        await generateEmail();
-    }
+    await generateEmail();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
     await initializeDomainSelector();
-    init();
+    await init();
 });
 
-// --- API Calls ---
-
-async function fetchActiveEmails() {
-    try {
-        const res = await fetch(`${API_BASE}/emails`);
-        const data = await res.json();
-
-        if (data.generated_emails && data.generated_emails.length > 0) {
-            currentEmail = data.generated_emails[data.generated_emails.length - 1];
-            updateCurrentEmailUI();
-            startPolling();
-        } else {
-            currentEmail = null;
-            updateCurrentEmailUI();
-        }
-    } catch (err) {
-        console.error('❌ Error fetching emails:', err);
-    }
-}
+// ─── API Calls ────────────────────────────────────────────────────────────────
 
 let isGenerating = false;
 
@@ -187,15 +152,23 @@ async function generateEmail() {
         const res = await fetch(`${API_BASE}/create?domain=${encodeURIComponent(selectedDomain)}`, { method: 'POST' });
         const data = await res.json();
 
+        if (!res.ok) {
+            showToast(data.error || 'Failed to generate email');
+            return;
+        }
+
         if (data.email) {
             currentEmail = data.email;
             localStorage.setItem('currentEmail', currentEmail);
+            allMessages = [];
+            filterAndRender();
             updateCurrentEmailUI();
             startPolling();
+            showToast(`New address ready!`);
         }
     } catch (err) {
         console.error('❌ Error creating email:', err);
-        showToast("Error creating email");
+        showToast('Error creating email');
     } finally {
         isGenerating = false;
         setLoading(false);
@@ -203,188 +176,162 @@ async function generateEmail() {
 }
 
 async function fetchMessages() {
-    if (!currentEmail) {
-        return;
-    }
+    if (!currentEmail) return;
 
     try {
-        const url = `${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`;
-
-        const res = await fetch(url);
+        const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`);
 
         if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errorText}`);
+            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            showToast(err.error || 'Failed to fetch messages');
+            return;
         }
 
         const data = await res.json();
 
         if (data.error) {
-            showToast(`Error: ${data.error}`);
-            allMessages = [];
-            filterAndRender();
+            console.warn('API error:', data.error);
             return;
         }
 
-        if (data.messages && Array.isArray(data.messages)) {
+        if (Array.isArray(data.messages)) {
             allMessages = data.messages;
-            filterAndRender();
-        } else {
-            allMessages = [];
             filterAndRender();
         }
     } catch (err) {
         console.error('❌ Error fetching messages:', err);
-        showToast('Failed to fetch messages');
-        allMessages = [];
-        filterAndRender();
     }
 }
 
 async function deleteCurrentEmail() {
     if (!currentEmail) return;
 
-    if (!confirm(`Are you sure you want to delete ${currentEmail}?`)) {
-        return;
-    }
+    if (!confirm(`Delete ${currentEmail}?\n\nYou will get a new random address.`)) return;
 
     try {
         const res = await fetch(`${API_BASE}/delete?email=${encodeURIComponent(currentEmail)}`, { method: 'DELETE' });
 
         if (res.ok) {
-            showToast("Email deleted");
+            showToast('Email deleted');
             currentEmail = null;
+            allMessages = [];
             localStorage.removeItem('currentEmail');
             stopPolling();
-            init();
+            filterAndRender();
+            updateCurrentEmailUI();
+            await generateEmail();
         } else {
-            showToast("Failed to delete");
+            showToast('Failed to delete');
         }
     } catch (err) {
         console.error('❌ Error deleting:', err);
+        showToast('Error deleting email');
     }
 }
 
-// --- UI Logic ---
+// ─── UI Logic ─────────────────────────────────────────────────────────────────
 
 function updateCurrentEmailUI() {
-    if (currentEmail) {
-        currentEmailText.textContent = currentEmail;
-    } else {
-        currentEmailText.textContent = "No Active Email";
-        allMessages = [];
-        filterAndRender();
+    const text = currentEmail || 'No Active Email';
+
+    if (currentEmailText) currentEmailText.textContent = text;
+
+    const mobileEl = document.getElementById('mobileEmailText');
+    if (mobileEl) mobileEl.textContent = text;
+
+    if (activeEmailDisplay) {
+        activeEmailDisplay.style.display = currentEmail ? '' : 'none';
     }
 }
 
 function filterAndRender() {
-    const query = searchInput ? searchInput.value.toLowerCase() : '';
+    const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    let filtered = allMessages;
-    if (query) {
-        filtered = allMessages.filter(msg => {
-            const subject = (msg.subject || '').toLowerCase();
-            const from = (msg.from || '').toLowerCase();
-            const body = (msg.text || '').toLowerCase();
-            const matches = subject.includes(query) || from.includes(query) || body.includes(query);
-            return matches;
-        });
-    }
+    const filtered = query
+        ? allMessages.filter(msg =>
+            (msg.subject || '').toLowerCase().includes(query) ||
+            (msg.from || '').toLowerCase().includes(query) ||
+            (msg.text || '').toLowerCase().includes(query)
+          )
+        : allMessages;
 
     renderEmailList(filtered);
 }
 
 function renderEmailList(messages) {
-    if (!emailListContainer) {
-        return;
-    }
+    if (!emailListContainer) return;
 
     emailListContainer.innerHTML = '';
 
     if (!messages || messages.length === 0) {
-        if (emptyState) {
-            emptyState.classList.remove('opacity-0', 'pointer-events-none');
-            emptyState.classList.add('opacity-100');
-        }
+        emptyState && emptyState.classList.replace('opacity-0', 'opacity-100');
+        emptyState && emptyState.classList.remove('pointer-events-none');
         return;
     }
 
-    if (emptyState) {
-        emptyState.classList.add('opacity-0', 'pointer-events-none');
-        emptyState.classList.remove('opacity-100');
-    }
+    emptyState && emptyState.classList.replace('opacity-100', 'opacity-0');
+    emptyState && emptyState.classList.add('pointer-events-none');
 
-    // Sort by date desc
-    messages.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sorted = [...messages].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    messages.forEach((msg, index) => {
+    sorted.forEach(msg => {
         const row = document.createElement('div');
         row.className = 'email-row group';
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+
         row.innerHTML = `
-            <div class="flex flex-col min-w-0">
-                <div class="font-bold text-slate-900 dark:text-white truncate group-hover:text-primary-600 transition-colors">${escapeHtml(msg.from || 'Unknown')}</div>
-                <div class="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">${escapeHtml(msg.subject || '(No Subject)')}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400 truncate md:hidden">${escapeHtml(msg.text ? msg.text.substring(0, 60) : '')}</div>
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="sender-avatar-sm">${escapeHtml((msg.from || 'U').charAt(0).toUpperCase())}</div>
+                <div class="flex flex-col min-w-0">
+                    <span class="font-semibold text-slate-900 dark:text-white truncate text-sm group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${escapeHtml(msg.from || 'Unknown')}</span>
+                    <span class="text-sm text-slate-600 dark:text-slate-300 truncate font-medium">${escapeHtml(msg.subject || '(No Subject)')}</span>
+                    <span class="text-xs text-slate-400 dark:text-slate-500 truncate">${escapeHtml(msg.text ? msg.text.substring(0, 80) : '')}</span>
+                </div>
             </div>
-            <div class="hidden md:flex flex-col min-w-0">
-                <div class="text-sm text-slate-600 dark:text-slate-400 truncate">${escapeHtml(msg.text ? msg.text.substring(0, 120) : '')}</div>
-            </div>
-            <div class="text-right flex flex-col items-end gap-1">
-                <div class="text-[10px] md:text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">${formatTime(msg.date)}</div>
-                <div class="w-2 h-2 rounded-full bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="text-right shrink-0 flex flex-col items-end gap-1">
+                <span class="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">${formatTime(msg.date)}</span>
+                <span class="w-2 h-2 rounded-full bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"></span>
             </div>
         `;
 
-        row.onclick = () => {
-            openDetail(msg);
-        };
+        row.onclick = () => openDetail(msg);
+        row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openDetail(msg); });
 
         emailListContainer.appendChild(row);
     });
 }
 
 function openDetail(msg) {
-    // Show overlay
     detailView.classList.add('active');
-
-    // Handled by active class in CSS
 
     detailSubject.textContent = msg.subject || '(No Subject)';
 
-    // Clean sender name (remove <email> if present)
     let senderName = msg.from || 'Unknown';
     if (senderName.includes('<')) {
-        senderName = senderName.split('<')[0].trim();
-        // Remove quotes if present
-        senderName = senderName.replace(/^["']|["']$/g, '');
+        senderName = senderName.split('<')[0].trim().replace(/^["']|["']$/g, '');
     }
 
     detailSenderName.textContent = senderName;
-    detailSenderEmail.textContent = `<${msg.from_email || 'unknown@example.com'}>`;
+    detailSenderEmail.textContent = msg.from_email ? `<${msg.from_email}>` : '';
 
-    // Format date like Gmail (e.g., "16 Jan 2026, 15:05")
     const date = new Date(msg.date);
-    const options = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-    detailDate.textContent = date.toLocaleDateString('en-GB', options).replace(',', '');
+    const opts = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    detailDate.textContent = isNaN(date) ? '' : date.toLocaleDateString('en-GB', opts);
 
-    // Set recipient (current email)
     const recipientEl = document.getElementById('detailRecipient');
-    if (recipientEl && currentEmail) {
-        recipientEl.textContent = currentEmail;
-    }
+    if (recipientEl) recipientEl.textContent = currentEmail || '';
 
-    // Avatar
-    const initial = (msg.from || 'U').charAt(0).toUpperCase();
-    senderAvatar.textContent = initial;
+    senderAvatar.textContent = (msg.from || 'U').charAt(0).toUpperCase();
 
-    // Parse body
     if (msg.html) {
-        const sanitized = msg.html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gm, "")
-            .replace(/on\w+="[^"]*"/g, "");
-        detailBody.innerHTML = sanitized;
+        detailBody.innerHTML = sanitizeHtml(msg.html);
     } else {
-        detailBody.textContent = msg.text || '(No Content)';
+        detailBody.innerHTML = `<pre class="whitespace-pre-wrap font-sans text-sm">${escapeHtml(msg.text || '(No Content)')}</pre>`;
     }
+
+    // Scroll to top of detail body
+    detailBody.scrollTop = 0;
 }
 
 function closeDetail() {
@@ -394,86 +341,70 @@ function closeDetail() {
 function copyEmail() {
     if (!currentEmail) return;
 
+    const text = currentEmail;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(currentEmail).then(() => {
-            showToast("Address copied to clipboard");
-        }).catch(err => {
-            fallbackCopy(currentEmail);
-        });
+        navigator.clipboard.writeText(text)
+            .then(() => showToast('📋 Address copied!'))
+            .catch(() => fallbackCopy(text));
     } else {
-        fallbackCopy(currentEmail);
+        fallbackCopy(text);
     }
 }
 
 function fallbackCopy(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    textArea.style.opacity = "0";
-
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
     try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            showToast("Address copied to clipboard");
-        } else {
-            showToast("Failed to copy");
-        }
-    } catch (err) {
-        showToast("Failed to copy");
+        document.execCommand('copy');
+        showToast('📋 Address copied!');
+    } catch {
+        showToast('Could not copy — please copy manually');
     }
-
-    document.body.removeChild(textArea);
+    document.body.removeChild(el);
 }
 
 async function refreshInbox() {
-    const refreshBtnIcon = document.querySelector('button[onclick="refreshInbox()"] ion-icon');
-    if (refreshBtnIcon) refreshBtnIcon.classList.add('rotating');
+    const icon = document.querySelector('#refreshBtn ion-icon');
+    if (icon) icon.classList.add('rotating');
 
-    showToast("Checking for new messages...");
-
+    showToast('Checking for new messages…');
     await fetchMessages();
 
-    if (refreshBtnIcon) refreshBtnIcon.classList.remove('rotating');
-    showToast("Inbox updated");
+    if (icon) icon.classList.remove('rotating');
+    showToast('Inbox updated');
 }
 
 function showToast(message) {
     if (!toast) return;
-    const toastMessage = document.getElementById('toastMessage');
-    if (toastMessage) toastMessage.textContent = message;
+    const msg = document.getElementById('toastMessage');
+    if (msg) msg.textContent = message;
     toast.classList.remove('opacity-0', 'translate-y-8');
     toast.classList.add('opacity-100', 'translate-y-0');
-    setTimeout(() => {
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
         toast.classList.add('opacity-0', 'translate-y-8');
         toast.classList.remove('opacity-100', 'translate-y-0');
     }, 3000);
 }
 
-function setLoading(isLoading) {
+function setLoading(on) {
     const btn = document.getElementById('generateBtn');
     if (!btn) return;
-    if (isLoading) {
-        const span = btn.querySelector('span');
-        if (span) span.textContent = "Generating...";
-        btn.disabled = true;
-    } else {
-        const span = btn.querySelector('span');
-        if (span) span.textContent = "New Address";
-        btn.disabled = false;
-    }
+    const span = btn.querySelector('span');
+    if (span) span.textContent = on ? 'Generating…' : 'New Address';
+    btn.disabled = on;
+    btn.classList.toggle('opacity-60', on);
 }
 
-// --- Helpers ---
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function escapeHtml(text) {
     if (!text) return '';
-    return text
+    return String(text)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -481,8 +412,49 @@ function escapeHtml(text) {
         .replace(/'/g, '&#039;');
 }
 
+/**
+ * Sanitize HTML email body.
+ * Removes: <script>, <iframe>, <object>, <embed>, <form>, <meta>, <link>
+ * Removes: on* event attributes, javascript: hrefs, data: URLs in src/href
+ */
+function sanitizeHtml(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Remove dangerous elements
+    const dangerous = ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'];
+    dangerous.forEach(tag => {
+        doc.querySelectorAll(tag).forEach(el => el.remove());
+    });
+
+    // Walk all elements and clean attributes
+    doc.body.querySelectorAll('*').forEach(el => {
+        // Remove on* event handlers
+        Array.from(el.attributes).forEach(attr => {
+            if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
+        });
+
+        // Sanitize href and src — block javascript: and data: URIs
+        ['href', 'src', 'action'].forEach(attr => {
+            const val = el.getAttribute(attr);
+            if (val && /^\s*(javascript|data|vbscript):/i.test(val)) {
+                el.removeAttribute(attr);
+            }
+        });
+
+        // Open external links in new tab safely
+        if (el.tagName === 'A') {
+            el.setAttribute('target', '_blank');
+            el.setAttribute('rel', 'noopener noreferrer');
+        }
+    });
+
+    return doc.body.innerHTML;
+}
+
 function formatTime(dateStr) {
     const date = new Date(dateStr);
+    if (isNaN(date)) return '';
     const now = new Date();
     if (date.toDateString() === now.toDateString()) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -491,235 +463,173 @@ function formatTime(dateStr) {
 }
 
 function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
+    stopPolling();
     fetchMessages();
     pollingInterval = setInterval(fetchMessages, 15000);
 }
 
 function stopPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-}
-
-// --- Search Logic ---
-
-if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-        filterAndRender();
-    });
-
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            filterAndRender();
-            searchInput.blur();
-        }
-    });
-}
-
-// Bind click on search icon
-const searchContainer = document.querySelector('.search-bar');
-if (searchContainer) {
-    const icon = searchContainer.querySelector('ion-icon');
-    if (icon) {
-        icon.style.cursor = 'pointer';
-        icon.onclick = () => {
-            filterAndRender();
-        };
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
     }
 }
 
-// --- Modal Functions ---
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+if (searchInput) {
+    searchInput.addEventListener('input', filterAndRender);
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { filterAndRender(); searchInput.blur(); }
+        if (e.key === 'Escape') { searchInput.value = ''; filterAndRender(); }
+    });
+}
+
+// ─── Access Email Modal ───────────────────────────────────────────────────────
+
 const accessModal = document.getElementById('accessModal');
 const accessBtn = document.getElementById('accessBtn');
 const accessEmailInput = document.getElementById('accessEmailInput');
 
 function openAccessModal() {
-    if (accessModal) {
-        accessModal.classList.add('active');
-        if (accessEmailInput) {
-            setTimeout(() => accessEmailInput.focus(), 100);
-        }
-    }
-    // Auto-close sidebar on mobile
-    if (sidebar && sidebar.classList.contains('active')) {
-        sidebar.classList.remove('active');
-    }
+    if (accessModal) accessModal.classList.add('active');
+    if (window.setSidebar) window.setSidebar(false);
+    setTimeout(() => accessEmailInput && accessEmailInput.focus(), 100);
 }
 
 function closeAccessModal() {
-    if (accessModal) {
-        accessModal.classList.remove('active');
-        if (accessEmailInput) {
-            accessEmailInput.value = '';
-        }
-    }
+    if (accessModal) accessModal.classList.remove('active');
+    if (accessEmailInput) accessEmailInput.value = '';
 }
 
 async function accessExistingEmail() {
     const email = accessEmailInput ? accessEmailInput.value.trim() : '';
 
-    if (!email) {
-        showToast('Please enter an email address');
-        return;
-    }
+    if (!email) { showToast('Please enter an email address'); return; }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        showToast('Please enter a valid email address');
-        return;
-    }
+    if (!emailRegex.test(email)) { showToast('Please enter a valid email address'); return; }
 
-    // Check if domain is in available domains
     const domain = email.split('@')[1];
-    const isSupported = availableDomains.includes(domain);
-
-    if (!isSupported) {
+    if (!availableDomains.includes(domain)) {
         showToast(`Domain @${domain} is not supported`);
         return;
     }
 
     currentEmail = email;
     localStorage.setItem('currentEmail', currentEmail);
+    allMessages = [];
+    filterAndRender();
     updateCurrentEmailUI();
     closeAccessModal();
-
-    // Start fetching messages
     stopPolling();
     startPolling();
-
-    showToast(`Accessing inbox for ${email}`);
+    showToast(`Accessing ${email}`);
 }
 
-// Close modal when clicking outside
 if (accessModal) {
-    accessModal.addEventListener('click', (e) => {
-        if (e.target === accessModal) {
-            closeAccessModal();
-        }
-    });
+    accessModal.addEventListener('click', e => { if (e.target === accessModal) closeAccessModal(); });
 }
-
-// Handle Enter key in access email input
 if (accessEmailInput) {
-    accessEmailInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            accessExistingEmail();
-        }
-    });
+    accessEmailInput.addEventListener('keydown', e => { if (e.key === 'Enter') accessExistingEmail(); });
 }
-
-// Bind events
-const generateBtn = document.getElementById('generateBtn');
-if (generateBtn) {
-    generateBtn.addEventListener('click', generateEmail);
-}
-
 if (accessBtn) {
     accessBtn.addEventListener('click', openAccessModal);
 }
 
-// --- Custom Email Modal ---
+// ─── Custom Email Modal ───────────────────────────────────────────────────────
+
 const customModal = document.getElementById('customModal');
 const customUsernameInput = document.getElementById('customUsernameInput');
 const customModalDomainDisplay = document.getElementById('customModalDomainDisplay');
 
 function openCustomModal() {
-    if (customModal) {
-        customModal.classList.add('active');
-        if (customModalDomainDisplay) {
-            customModalDomainDisplay.textContent = `@${selectedDomain}`;
-        }
-        if (customUsernameInput) {
-            setTimeout(() => customUsernameInput.focus(), 100);
-        }
-    }
+    if (customModal) customModal.classList.add('active');
+    if (customModalDomainDisplay) customModalDomainDisplay.textContent = `@${selectedDomain}`;
+    if (window.setSidebar) window.setSidebar(false);
+    setTimeout(() => customUsernameInput && customUsernameInput.focus(), 100);
 }
 
 function closeCustomModal() {
-    if (customModal) {
-        customModal.classList.remove('active');
-        if (customUsernameInput) customUsernameInput.value = '';
-    }
+    if (customModal) customModal.classList.remove('active');
+    if (customUsernameInput) customUsernameInput.value = '';
 }
 
 async function generateCustomEmail() {
     const username = customUsernameInput ? customUsernameInput.value.trim() : '';
-    if (!username) {
-        showToast("Please enter a username");
-        return;
-    }
 
-    // basic validation
+    if (!username) { showToast('Please enter a username'); return; }
     if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-        showToast("Invalid characters. Use letters, numbers, dot, -, _");
+        showToast('Use letters, numbers, dot, dash, or underscore only');
         return;
     }
 
     closeCustomModal();
 
-    // Call API with username
     try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/create?domain=${encodeURIComponent(selectedDomain)}&username=${encodeURIComponent(username)}`, { method: 'POST' });
-
+        const res = await fetch(
+            `${API_BASE}/create?domain=${encodeURIComponent(selectedDomain)}&username=${encodeURIComponent(username)}`,
+            { method: 'POST' }
+        );
         const data = await res.json();
 
-        if (!res.ok) {
-            showToast(data.error || "Failed to create custom email");
-            return;
-        }
+        if (!res.ok) { showToast(data.error || 'Failed to create custom email'); return; }
 
         if (data.email) {
             currentEmail = data.email;
             localStorage.setItem('currentEmail', currentEmail);
+            allMessages = [];
+            filterAndRender();
             updateCurrentEmailUI();
             startPolling();
             showToast(`Created ${currentEmail}`);
         }
     } catch (err) {
-        console.error("Error creating custom email", err);
-        showToast("Error creating email");
+        console.error('Error creating custom email:', err);
+        showToast('Error creating email');
     } finally {
         setLoading(false);
     }
 }
 
-// Close on outside click for custom modal
 if (customModal) {
-    customModal.addEventListener('click', (e) => {
-        if (e.target === customModal) closeCustomModal();
-    });
+    customModal.addEventListener('click', e => { if (e.target === customModal) closeCustomModal(); });
 }
-// Enter key for custom input
 if (customUsernameInput) {
-    customUsernameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') generateCustomEmail();
-    });
+    customUsernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateCustomEmail(); });
 }
 
-// Expose to window for onclick handlers
-window.openCustomModal = openCustomModal;
-window.closeCustomModal = closeCustomModal;
-window.generateCustomEmail = generateCustomEmail;
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-// --- Sidebar Logic ---
 function toggleSidebar() {
-    if (sidebar) {
-        sidebar.classList.toggle('active');
-    }
+    if (sidebar) sidebar.classList.toggle('active');
 }
 
-// Close sidebar when clicking outside
-document.addEventListener('click', (e) => {
+document.addEventListener('click', e => {
     if (sidebar && sidebar.classList.contains('active')) {
-        const isClickInsideSidebar = sidebar.contains(e.target);
-        const isClickOnToggleButton = e.target.closest('.mobile-menu-btn');
-        
-        if (!isClickInsideSidebar && !isClickOnToggleButton) {
+        if (!sidebar.contains(e.target) && !e.target.closest('.mobile-menu-btn')) {
             sidebar.classList.remove('active');
         }
     }
 });
 
-// Expose to window
+// ─── Generate button ──────────────────────────────────────────────────────────
+
+const generateBtn = document.getElementById('generateBtn');
+if (generateBtn) generateBtn.addEventListener('click', generateEmail);
+
+// ─── Expose to window for onclick handlers ────────────────────────────────────
+
+window.generateEmail = generateEmail;
+window.openCustomModal = openCustomModal;
+window.closeCustomModal = closeCustomModal;
+window.generateCustomEmail = generateCustomEmail;
+window.openAccessModal = openAccessModal;
+window.closeAccessModal = closeAccessModal;
+window.accessExistingEmail = accessExistingEmail;
+window.refreshInbox = refreshInbox;
+window.deleteCurrentEmail = deleteCurrentEmail;
+window.closeDetail = closeDetail;
+window.copyEmail = copyEmail;
 window.toggleSidebar = toggleSidebar;

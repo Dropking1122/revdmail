@@ -3,7 +3,9 @@ const { simpleParser } = require('mailparser');
 
 let activeConnection = null;
 let connectionPromise = null;
-// cachedBoxName removed as we switch boxes
+
+// Cache folder names so we don't call getBoxes() on every request (N+1 fix)
+let cachedFolders = null;
 
 async function getImapConnection() {
     const config = {
@@ -29,7 +31,7 @@ async function getImapConnection() {
     }
 
     if (!config.imap.user || !config.imap.password || !config.imap.host) {
-        throw new Error("IMAP configuration missing in .env");
+        throw new Error("IMAP configuration missing. Please set IMAP_USER, IMAP_PASSWORD, and IMAP_SERVER.");
     }
 
     connectionPromise = (async () => {
@@ -41,20 +43,23 @@ async function getImapConnection() {
                 console.log('⚠️ IMAP Connection closed');
                 activeConnection = null;
                 connectionPromise = null;
+                cachedFolders = null; // reset folder cache on disconnect
             });
 
             connection.imap.once('error', (err) => {
-                console.error('❌ IMAP Connection Error:', err);
+                console.error('❌ IMAP Connection Error:', err.message);
                 activeConnection = null;
                 connectionPromise = null;
+                cachedFolders = null;
             });
 
             activeConnection = connection;
             return connection;
         } catch (err) {
-            console.error('❌ Failed to connect to IMAP:', err);
+            console.error('❌ Failed to connect to IMAP:', err.message);
             activeConnection = null;
             connectionPromise = null;
+            cachedFolders = null;
             throw err;
         }
     })();
@@ -62,7 +67,13 @@ async function getImapConnection() {
     return connectionPromise;
 }
 
-async function detectSpecialFolders(connection) {
+/**
+ * Detect special folders (AllMail, Spam) once and cache the result.
+ * This avoids repeated getBoxes() calls on every fetchImapMessages invocation.
+ */
+async function getSpecialFolders(connection) {
+    if (cachedFolders) return cachedFolders;
+
     let allMail = 'INBOX';
     let spam = null;
 
@@ -87,33 +98,31 @@ async function detectSpecialFolders(connection) {
         const foundAll = findBoxWithAttr(boxes, '\\All');
         if (foundAll) {
             allMail = foundAll;
-        } else {
-            if (boxes['[Gmail]'] && boxes['[Gmail]'].children) {
-                const gmailChildren = boxes['[Gmail]'].children;
-                if (gmailChildren['Semua Pesan']) allMail = '[Gmail]/Semua Pesan';
-                else if (gmailChildren['All Mail']) allMail = '[Gmail]/All Mail';
-            }
+        } else if (boxes['[Gmail]'] && boxes['[Gmail]'].children) {
+            const gc = boxes['[Gmail]'].children;
+            if (gc['Semua Pesan']) allMail = '[Gmail]/Semua Pesan';
+            else if (gc['All Mail']) allMail = '[Gmail]/All Mail';
         }
 
         const foundSpam = findBoxWithAttr(boxes, '\\Junk');
         if (foundSpam) {
             spam = foundSpam;
-        } else {
-            if (boxes['[Gmail]'] && boxes['[Gmail]'].children) {
-                if (boxes['[Gmail]'].children['Spam']) spam = '[Gmail]/Spam';
-            }
+        } else if (boxes['[Gmail]'] && boxes['[Gmail]'].children) {
+            if (boxes['[Gmail]'].children['Spam']) spam = '[Gmail]/Spam';
         }
     } catch (err) {
         console.warn('⚠️ Error detecting boxes:', err.message);
     }
-    return { allMail, spam };
+
+    cachedFolders = { allMail, spam };
+    return cachedFolders;
 }
 
-async function fetchImapMessages(tempEmail, limit = 10) {
+async function fetchImapMessages(tempEmail, limit = 20) {
     let connection;
     try {
         connection = await getImapConnection();
-        const { allMail, spam } = await detectSpecialFolders(connection);
+        const { allMail, spam } = await getSpecialFolders(connection);
 
         const searchCriteria = [['HEADER', 'TO', tempEmail]];
         const fetchOptions = {
@@ -121,62 +130,88 @@ async function fetchImapMessages(tempEmail, limit = 10) {
             markSeen: false
         };
 
-        let allMessages = [];
+        // Deduplicate using Message-ID header (safe across folders).
+        // Key: "<Message-ID>|<folder>" as fallback when Message-ID is absent.
+        const messageMap = new Map();
 
-        // 1. Fetch from All Mail
-        try {
-            await connection.openBox(allMail);
+        async function fetchFromFolder(folderName) {
+            await connection.openBox(folderName);
             const msgs = await connection.search(searchCriteria, fetchOptions);
-            allMessages = allMessages.concat(msgs);
-        } catch (err) {
-            console.warn(`⚠️ Failed to fetch from ${allMail}, trying INBOX`, err.message);
-            try {
-                await connection.openBox('INBOX');
-                const msgs = await connection.search(searchCriteria, fetchOptions);
-                allMessages = allMessages.concat(msgs);
-            } catch (e) { }
+            msgs.forEach(m => {
+                // Try to extract Message-ID from HEADER part for a stable dedup key
+                const headerPart = m.parts.find(p => p.which === 'HEADER');
+                let msgId = null;
+                if (headerPart && headerPart.body && headerPart.body['message-id']) {
+                    const raw = headerPart.body['message-id'];
+                    msgId = Array.isArray(raw) ? raw[0] : raw;
+                    msgId = msgId && msgId.trim();
+                }
+                const key = msgId || `${folderName}::${m.attributes.uid}`;
+                if (!messageMap.has(key)) {
+                    messageMap.set(key, m);
+                }
+            });
         }
 
-        // 2. Fetch from Spam
-        if (spam) {
+        // 1. Fetch from AllMail (or INBOX fallback)
+        try {
+            await fetchFromFolder(allMail);
+        } catch (err) {
+            console.warn(`⚠️ Failed to fetch from ${allMail}, trying INBOX:`, err.message);
             try {
-                await connection.openBox(spam);
-                const msgs = await connection.search(searchCriteria, fetchOptions);
-                allMessages = allMessages.concat(msgs);
-            } catch (err) {
-                console.warn(`⚠️ Failed to fetch from Spam (${spam})`, err.message);
+                await fetchFromFolder('INBOX');
+            } catch (e) {
+                console.warn('⚠️ INBOX fallback also failed:', e.message);
             }
         }
 
-        allMessages.sort((a, b) => new Date(b.attributes.date) - new Date(a.attributes.date));
-        const recentMessages = allMessages.slice(0, limit);
+        // 2. Fetch from Spam (deduplicated via Map)
+        if (spam) {
+            try {
+                await fetchFromFolder(spam);
+            } catch (err) {
+                console.warn(`⚠️ Failed to fetch from Spam (${spam}):`, err.message);
+            }
+        }
 
-        const results = await Promise.all(recentMessages.map(async (item) => {
+        // Sort by date descending and take the most recent
+        const allMessages = Array.from(messageMap.values())
+            .sort((a, b) => new Date(b.attributes.date) - new Date(a.attributes.date))
+            .slice(0, limit);
+
+        const results = await Promise.all(allMessages.map(async (item) => {
             const allParts = item.parts.find(p => p.which === '');
             const id = item.attributes.uid;
+
+            if (!allParts) {
+                return { id, subject: '(No Content)', from: 'Unknown', from_email: '', date: item.attributes.date, text: '', html: '' };
+            }
 
             try {
                 const parsed = await simpleParser(allParts.body);
 
                 let senderName = 'Unknown';
-                if (parsed.from && parsed.from.value && parsed.from.value[0] && parsed.from.value[0].name) {
-                    senderName = parsed.from.value[0].name;
+                if (parsed.from && parsed.from.value && parsed.from.value[0]) {
+                    senderName = parsed.from.value[0].name || parsed.from.value[0].address || 'Unknown';
                 } else if (parsed.from && parsed.from.text) {
                     senderName = parsed.from.text.replace(/<.*>/, '').trim();
                 }
-                senderName = senderName.replace(/^["']|["']$/g, '');
+                senderName = senderName.replace(/^["']|["']$/g, '').trim() || 'Unknown';
 
                 return {
-                    id: id,
-                    subject: parsed.subject,
-                    from: senderName || 'Unknown',
-                    from_email: parsed.from && parsed.from.value && parsed.from.value[0] ? parsed.from.value[0].address : '',
-                    date: parsed.date,
+                    id,
+                    subject: parsed.subject || '(No Subject)',
+                    from: senderName,
+                    from_email: (parsed.from && parsed.from.value && parsed.from.value[0])
+                        ? parsed.from.value[0].address || ''
+                        : '',
+                    date: parsed.date || item.attributes.date,
                     text: parsed.text || '',
                     html: parsed.html || parsed.textAsHtml || ''
                 };
             } catch (pErr) {
-                return { id: id, subject: 'Error parsing', from: 'Unknown', date: new Date(), text: '', html: '' };
+                console.warn(`⚠️ Failed to parse message UID ${id}:`, pErr.message);
+                return { id, subject: '(Parse Error)', from: 'Unknown', from_email: '', date: item.attributes.date, text: '', html: '' };
             }
         }));
 
@@ -184,10 +219,12 @@ async function fetchImapMessages(tempEmail, limit = 10) {
 
     } catch (error) {
         console.error("❌ IMAP Fetch Error:", error.message);
+        // Reset connection so next request gets a fresh one
         if (activeConnection) {
-            try { activeConnection.end(); } catch (e) { }
+            try { activeConnection.end(); } catch (e) { /* ignore */ }
             activeConnection = null;
             connectionPromise = null;
+            cachedFolders = null;
         }
         return { messages: [], error: error.message };
     }
