@@ -1,0 +1,64 @@
+root@localhost:/var/www/revdmail# curl http://localhost:3000/api/debug/emails | python3 -m json.tool
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1413  100  1413    0     0    446      0  0:00:03  0:00:03 --:--:--   446
+{
+    "recent": [
+        {
+            "uid": 1466,
+            "date": "2026-07-09T02:59:06.000Z",
+            "subject": "Plan a quick vocabulary lesson",
+            "to": "valltzid@gmail.com",
+            "delivered-to": "valltzid@gmail.com",
+            "x-original-to": "",
+            "x-forwarded-to": "",
+            "cc": "",
+            "from": "ChatGPT <noreply@email.openai.com>"
+        },
+        {
+            "uid": 1465,
+            "date": "2026-07-08T18:53:27.000Z",
+            "subject": "Anda diundang ke You Built It. Now Build Trust. See the Best Community Profiles.",
+            "to": "valltzid@gmail.com",
+            "delivered-to": "valltzid@gmail.com",
+            "x-original-to": "",
+            "x-forwarded-to": "",
+            "cc": "",
+            "from": "Manny Bernabe <MannyB@user.luma-mail.com>"
+        },
+        {
+            "uid": 1464,
+            "date": "2026-07-07T00:33:53.000Z",
+            "subject": "SO happy you are here\u2014major savings are on the way.",
+            "to": "<VAL.LTZ.ID@GMAIL.COM>",
+            "delivered-to": "val.ltz.id@gmail.com",
+            "x-original-to": "",
+            "x-forwarded-to": "",
+            "cc": "",
+            "from": "\"Target\" <targetnews@em.target.com>"
+        },
+        {
+            "uid": 1463,
+            "date": "2026-07-06T01:16:48.000Z",
+            "subject": "Yang terbaik dari Canva, kini gratis untuk murid",
+            "to": "valltzid+worldwide@gmail.com",
+            "delivered-to": "valltzid+worldwide@gmail.com",
+            "x-original-to": "",
+            "x-forwarded-to": "",
+            "cc": "",
+            "from": "Canva Education <education@engage.canva.com>"
+        },
+        {
+            "uid": 1460,
+            "date": "2026-07-01T04:35:35.000Z",
+            "subject": "\ud83d\udcb0 Naik Kelas dengan Domain .ID, Promo Cuma Rp190.000,-!",
+            "to": "Bang Jago <Valltz.ID@gmail.com>",
+            "delivered-to": "valltz.id@gmail.com",
+            "x-original-to": "",
+            "x-forwarded-to": "",
+            "cc": "",
+            "from": "Dilla dari IDwebhost <info@idwebhost.com>"
+        }
+    ]
+}
+root@localhost:/var/www/revdmail# 
