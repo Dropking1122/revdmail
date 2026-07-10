@@ -665,11 +665,13 @@ const gmailGenCount      = document.getElementById('gmailGenCount');
 
 function openGmailGeneratorPage() {
     if (gmailGeneratorPage) gmailGeneratorPage.classList.add('active');
+    document.getElementById('mainCard')?.classList.add('gmail-gen-active');
     setTimeout(() => gmailGenInput && gmailGenInput.focus(), 300);
 }
 
 function closeGmailGeneratorPage() {
     if (gmailGeneratorPage) gmailGeneratorPage.classList.remove('active');
+    document.getElementById('mainCard')?.classList.remove('gmail-gen-active');
 }
 
 async function generateGmailDotVariants() {
