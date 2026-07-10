@@ -134,6 +134,14 @@
         }
         #emailDetailView.active { transform: translateX(0); }
 
+        /* Gmail Generator page slide */
+        #gmailGeneratorPage {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex !important;
+        }
+        #gmailGeneratorPage.active { transform: translateX(0); }
+
         /* Domain dropdown */
         #domainOptions { display: none; }
         .custom-domain-selector.active #domainOptions { display: block; }
@@ -188,7 +196,7 @@
                 <ion-icon name="log-in-outline" class="text-lg"></ion-icon>
                 <span>Access Email</span>
             </button>
-            <button class="btn-secondary w-full" onclick="openGmailGeneratorModal(); if(window.setSidebar) setSidebar(false);">
+            <button class="btn-secondary w-full" onclick="openGmailGeneratorPage(); if(window.setSidebar) setSidebar(false);">
                 <ion-icon name="logo-google" class="text-lg text-red-500"></ion-icon>
                 <span>Gmail Generator</span>
             </button>
@@ -333,6 +341,61 @@
                     </div>
                 </section>
 
+                <!-- ─── Gmail Generator Page ───────────────────────────────── -->
+                <section id="gmailGeneratorPage"
+                    class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+
+                    <!-- Page header -->
+                    <header class="shrink-0 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/30">
+                        <div class="flex items-center gap-3 px-4 py-4">
+                            <button onclick="closeGmailGeneratorPage()"
+                                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shrink-0 transition-all hover:border-slate-300 active:scale-90">
+                                <ion-icon name="arrow-back-outline" class="text-lg"></ion-icon>
+                            </button>
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <div class="w-8 h-8 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                    <ion-icon name="logo-google" class="text-red-500 text-base"></ion-icon>
+                                </div>
+                                <h1 class="text-lg font-bold text-slate-900 dark:text-white truncate">Gmail Generator</h1>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Input section -->
+                    <div class="shrink-0 px-4 py-5 border-b border-slate-100 dark:border-slate-800">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm mb-4">
+                            Gmail mengabaikan titik — <span class="font-semibold text-slate-700 dark:text-slate-300">r.evd@gmail.com</span> dan <span class="font-semibold text-slate-700 dark:text-slate-300">revd@gmail.com</span> adalah inbox yang sama. Gunakan variasi sebagai alamat temp terpisah.
+                        </p>
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
+                                    <ion-icon name="mail-outline"></ion-icon>
+                                </div>
+                                <input type="email" id="gmailGenInput" placeholder="nama@gmail.com"
+                                    class="w-full pl-11 pr-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+                                    autocomplete="off">
+                            </div>
+                            <button onclick="generateGmailDotVariants()" id="gmailGenBtn"
+                                class="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-semibold text-sm transition-all active:scale-95 shrink-0 disabled:opacity-60">
+                                Generate
+                            </button>
+                        </div>
+                        <!-- Stats bar -->
+                        <div id="gmailGenStats" class="hidden mt-3 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1">
+                            <span id="gmailGenCount"></span>
+                            <button onclick="copyAllGmailVariants()" class="flex items-center gap-1 text-primary-600 dark:text-primary-400 font-semibold hover:underline">
+                                <ion-icon name="copy-outline" class="text-sm"></ion-icon> Copy all
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Variant list -->
+                    <div id="gmailGenList"
+                        class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800">
+                        <!-- Populated by JS -->
+                    </div>
+                </section>
+
                 <!-- ─── Email Detail View ───────────────────────────────────── -->
                 <article id="emailDetailView"
                     class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
@@ -437,63 +500,6 @@
             <div class="p-5 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
                 <button onclick="closeCustomModal()" class="btn-secondary flex-1">Cancel</button>
                 <button onclick="generateCustomEmail()" class="btn-primary flex-1">Create</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ─── Gmail Generator Modal ───────────────────────────────────────────── -->
-    <div id="gmailGeneratorModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="gmailGenTitle">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
-            <!-- Header -->
-            <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center">
-                        <ion-icon name="logo-google" class="text-red-500 text-xl"></ion-icon>
-                    </div>
-                    <h2 id="gmailGenTitle" class="text-lg font-bold text-slate-900 dark:text-white">Gmail Generator</h2>
-                </div>
-                <button onclick="closeGmailGeneratorModal()" class="icon-btn" aria-label="Close">
-                    <ion-icon name="close-outline" class="text-2xl"></ion-icon>
-                </button>
-            </div>
-
-            <!-- Input -->
-            <div class="p-5 shrink-0">
-                <p class="text-slate-500 dark:text-slate-400 text-sm mb-4">
-                    Gmail mengabaikan titik di username — <span class="font-semibold text-slate-700 dark:text-slate-300">r.evd@gmail.com</span> dan <span class="font-semibold text-slate-700 dark:text-slate-300">revd@gmail.com</span> masuk ke inbox yang sama, tapi bisa disearch terpisah.
-                </p>
-                <div class="flex gap-2">
-                    <div class="relative flex-1">
-                        <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
-                            <ion-icon name="mail-outline"></ion-icon>
-                        </div>
-                        <input type="email" id="gmailGenInput" placeholder="nama@gmail.com"
-                            class="w-full pl-11 pr-4 py-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-                            autocomplete="off">
-                    </div>
-                    <button onclick="generateGmailDotVariants()" id="gmailGenBtn"
-                        class="px-4 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-semibold text-sm transition-all active:scale-95 shrink-0">
-                        Generate
-                    </button>
-                </div>
-                <!-- Stats bar -->
-                <div id="gmailGenStats" class="hidden mt-3 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 px-1">
-                    <span id="gmailGenCount"></span>
-                    <button onclick="copyAllGmailVariants()" class="flex items-center gap-1 text-primary-600 dark:text-primary-400 font-semibold hover:underline">
-                        <ion-icon name="copy-outline" class="text-sm"></ion-icon> Copy all
-                    </button>
-                </div>
-            </div>
-
-            <!-- Variant list -->
-            <div id="gmailGenList"
-                class="flex-1 overflow-y-auto custom-scrollbar border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 min-h-0">
-                <!-- Populated by JS -->
-            </div>
-
-            <!-- Footer -->
-            <div class="p-4 bg-slate-50 dark:bg-slate-800/50 shrink-0">
-                <button onclick="closeGmailGeneratorModal()" class="btn-secondary w-full">Close</button>
             </div>
         </div>
     </div>

@@ -657,19 +657,19 @@ window.toggleSidebar = toggleSidebar;
 
 let gmailVariantsCache = [];
 
-const gmailGeneratorModal = document.getElementById('gmailGeneratorModal');
-const gmailGenInput       = document.getElementById('gmailGenInput');
-const gmailGenList        = document.getElementById('gmailGenList');
-const gmailGenStats       = document.getElementById('gmailGenStats');
-const gmailGenCount       = document.getElementById('gmailGenCount');
+const gmailGeneratorPage = document.getElementById('gmailGeneratorPage');
+const gmailGenInput      = document.getElementById('gmailGenInput');
+const gmailGenList       = document.getElementById('gmailGenList');
+const gmailGenStats      = document.getElementById('gmailGenStats');
+const gmailGenCount      = document.getElementById('gmailGenCount');
 
-function openGmailGeneratorModal() {
-    if (gmailGeneratorModal) gmailGeneratorModal.classList.add('active');
-    setTimeout(() => gmailGenInput && gmailGenInput.focus(), 100);
+function openGmailGeneratorPage() {
+    if (gmailGeneratorPage) gmailGeneratorPage.classList.add('active');
+    setTimeout(() => gmailGenInput && gmailGenInput.focus(), 300);
 }
 
-function closeGmailGeneratorModal() {
-    if (gmailGeneratorModal) gmailGeneratorModal.classList.remove('active');
+function closeGmailGeneratorPage() {
+    if (gmailGeneratorPage) gmailGeneratorPage.classList.remove('active');
 }
 
 async function generateGmailDotVariants() {
@@ -759,7 +759,7 @@ function useGmailVariant(email) {
     updateCurrentEmailUI();
     stopPolling();
     startPolling();
-    closeGmailGeneratorModal();
+    closeGmailGeneratorPage();
     showToast(`✅ Menggunakan ${email}`);
 }
 
@@ -771,16 +771,11 @@ function copyAllGmailVariants() {
         .catch(() => fallbackCopy(text));
 }
 
-if (gmailGeneratorModal) {
-    gmailGeneratorModal.addEventListener('click', e => {
-        if (e.target === gmailGeneratorModal) closeGmailGeneratorModal();
-    });
-}
 if (gmailGenInput) {
     gmailGenInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateGmailDotVariants(); });
 }
 
-window.openGmailGeneratorModal  = openGmailGeneratorModal;
-window.closeGmailGeneratorModal = closeGmailGeneratorModal;
+window.openGmailGeneratorPage  = openGmailGeneratorPage;
+window.closeGmailGeneratorPage = closeGmailGeneratorPage;
 window.generateGmailDotVariants = generateGmailDotVariants;
 window.copyAllGmailVariants     = copyAllGmailVariants;
