@@ -1,6 +1,7 @@
 const { generateRandomPrefix } = require('../utils/nameGenerator');
 const imapService = require('../services/imapService');
 const { fetchRecentRaw } = imapService;
+const { generateGmailVariants } = require('../utils/gmailVariants');
 
 function getAvailableDomains() {
     const domainsEnv = process.env.AVAILABLE_DOMAINS;
@@ -65,11 +66,22 @@ async function getMessages(req, res) {
         return res.status(400).json({ error: "Missing email parameter" });
     }
 
-    // Server-side domain enforcement — only serve mail for our own domains
-    const allowedDomains = getAvailableDomains();
     const emailDomain = tempEmail.split('@')[1] || '';
-    if (!allowedDomains.includes(emailDomain)) {
-        return res.status(403).json({ error: `Domain @${emailDomain} is not allowed.` });
+
+    // Allow Gmail variants when IMAP is configured against a Gmail account
+    const isGmailVariant = (emailDomain === 'gmail.com' || emailDomain === 'googlemail.com');
+    if (isGmailVariant) {
+        const imapUser = process.env.IMAP_USER || '';
+        const imapDomain = imapUser.split('@')[1] || '';
+        if (imapDomain !== 'gmail.com' && imapDomain !== 'googlemail.com') {
+            return res.status(403).json({ error: 'Gmail variants require Gmail IMAP configuration.' });
+        }
+    } else {
+        // Standard domain enforcement for custom domains
+        const allowedDomains = getAvailableDomains();
+        if (!allowedDomains.includes(emailDomain)) {
+            return res.status(403).json({ error: `Domain @${emailDomain} is not allowed.` });
+        }
     }
 
     const { messages, error } = await imapService.fetchImapMessages(tempEmail);
@@ -79,6 +91,18 @@ async function getMessages(req, res) {
     }
 
     res.json({ messages });
+}
+
+async function gmailGenerator(req, res) {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'Missing email parameter' });
+
+    const { variants, truncated } = generateGmailVariants(email);
+    if (variants.length === 0) {
+        return res.status(400).json({ error: 'Invalid Gmail address. Only gmail.com / googlemail.com supported.' });
+    }
+
+    res.json({ variants, truncated, total: variants.length });
 }
 
 async function getDomains(req, res) {
@@ -92,4 +116,4 @@ async function debugEmails(req, res) {
     res.json({ recent });
 }
 
-module.exports = { createEmail, listEmails, deleteEmail, getMessages, getDomains, debugEmails };
+module.exports = { createEmail, listEmails, deleteEmail, getMessages, getDomains, debugEmails, gmailGenerator };

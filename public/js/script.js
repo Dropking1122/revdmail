@@ -652,3 +652,135 @@ window.deleteCurrentEmail = deleteCurrentEmail;
 window.closeDetail = closeDetail;
 window.copyEmail = copyEmail;
 window.toggleSidebar = toggleSidebar;
+
+// ─── Gmail Dot Trick Generator ────────────────────────────────────────────────
+
+let gmailVariantsCache = [];
+
+const gmailGeneratorModal = document.getElementById('gmailGeneratorModal');
+const gmailGenInput       = document.getElementById('gmailGenInput');
+const gmailGenList        = document.getElementById('gmailGenList');
+const gmailGenStats       = document.getElementById('gmailGenStats');
+const gmailGenCount       = document.getElementById('gmailGenCount');
+
+function openGmailGeneratorModal() {
+    if (gmailGeneratorModal) gmailGeneratorModal.classList.add('active');
+    setTimeout(() => gmailGenInput && gmailGenInput.focus(), 100);
+}
+
+function closeGmailGeneratorModal() {
+    if (gmailGeneratorModal) gmailGeneratorModal.classList.remove('active');
+}
+
+async function generateGmailDotVariants() {
+    const email = gmailGenInput ? gmailGenInput.value.trim() : '';
+    if (!email) { showToast('Masukkan alamat Gmail terlebih dahulu'); return; }
+
+    const btn = document.getElementById('gmailGenBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+
+    try {
+        const res = await fetch(`${API_BASE}/gmail-generator?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+
+        if (!res.ok) { showToast(data.error || 'Gagal generate variasi'); return; }
+
+        gmailVariantsCache = data.variants || [];
+        renderGmailVariants(data.variants, data.truncated, data.total);
+    } catch (err) {
+        console.error('Gmail generator error:', err);
+        showToast('Terjadi kesalahan');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
+    }
+}
+
+function renderGmailVariants(variants, truncated, total) {
+    if (!gmailGenList) return;
+    gmailGenList.innerHTML = '';
+
+    if (!variants || variants.length === 0) {
+        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">Tidak ada variasi ditemukan.</p>`;
+        if (gmailGenStats) gmailGenStats.classList.add('hidden');
+        return;
+    }
+
+    // Stats bar
+    if (gmailGenStats) gmailGenStats.classList.remove('hidden');
+    if (gmailGenCount) {
+        gmailGenCount.textContent = truncated
+            ? `Menampilkan 200 dari ${total} variasi`
+            : `${total} variasi ditemukan`;
+    }
+
+    variants.forEach((v, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3 px-5 py-3 hover:bg-primary-50/60 dark:hover:bg-slate-800/60 transition-all group cursor-pointer';
+
+        row.innerHTML = `
+            <span class="text-xs font-bold text-slate-300 dark:text-slate-600 w-7 text-right shrink-0">${idx + 1}</span>
+            <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate font-mono">${escapeHtml(v)}</span>
+            <div class="flex items-center gap-1 shrink-0">
+                <button data-email="${escapeHtml(v)}" title="Salin"
+                    class="copy-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
+                    <ion-icon name="copy-outline" class="text-base pointer-events-none"></ion-icon>
+                </button>
+                <button data-email="${escapeHtml(v)}" title="Gunakan alamat ini"
+                    class="use-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
+                    <ion-icon name="checkmark-circle-outline" class="text-base pointer-events-none"></ion-icon>
+                </button>
+            </div>
+        `;
+
+        gmailGenList.appendChild(row);
+    });
+
+    // Event delegation — one listener for the whole list
+    gmailGenList.onclick = (e) => {
+        const copyBtn = e.target.closest('.copy-variant-btn');
+        const useBtn  = e.target.closest('.use-variant-btn');
+
+        if (copyBtn) {
+            const addr = copyBtn.dataset.email;
+            navigator.clipboard?.writeText(addr).catch(() => fallbackCopy(addr));
+            showToast(`📋 ${addr} disalin!`);
+        } else if (useBtn) {
+            useGmailVariant(useBtn.dataset.email);
+        }
+    };
+}
+
+function useGmailVariant(email) {
+    currentEmail = email;
+    localStorage.setItem('currentEmail', email);
+    allMessages = [];
+    consecutiveEmptyPolls = 0;
+    filterAndRender();
+    updateCurrentEmailUI();
+    stopPolling();
+    startPolling();
+    closeGmailGeneratorModal();
+    showToast(`✅ Menggunakan ${email}`);
+}
+
+function copyAllGmailVariants() {
+    if (!gmailVariantsCache.length) return;
+    const text = gmailVariantsCache.join('\n');
+    navigator.clipboard?.writeText(text)
+        .then(() => showToast(`📋 ${gmailVariantsCache.length} alamat disalin!`))
+        .catch(() => fallbackCopy(text));
+}
+
+if (gmailGeneratorModal) {
+    gmailGeneratorModal.addEventListener('click', e => {
+        if (e.target === gmailGeneratorModal) closeGmailGeneratorModal();
+    });
+}
+if (gmailGenInput) {
+    gmailGenInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateGmailDotVariants(); });
+}
+
+window.openGmailGeneratorModal  = openGmailGeneratorModal;
+window.closeGmailGeneratorModal = closeGmailGeneratorModal;
+window.generateGmailDotVariants = generateGmailDotVariants;
+window.copyAllGmailVariants     = copyAllGmailVariants;
