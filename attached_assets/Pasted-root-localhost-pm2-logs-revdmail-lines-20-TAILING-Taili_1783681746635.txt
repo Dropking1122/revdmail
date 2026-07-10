@@ -1,0 +1,47 @@
+root@localhost:~# pm2 logs revdmail --lines 20
+[TAILING] Tailing last 20 lines for [revdmail] process (change the value with --lines option)
+/root/.pm2/logs/revdmail-error.log last 20 lines:
+1|revdmail |     at finishMaybe (node:internal/streams/writable:930:5)
+1|revdmail |     at Writable.end (node:internal/streams/writable:845:5)
+1|revdmail |     at Socket.end (node:net:738:31) {
+1|revdmail |   code: 'EPIPE',
+1|revdmail |   source: 'socket'
+1|revdmail | }
+1|revdmail | Error: This socket has been ended by the other party
+1|revdmail |     at genericNodeError (node:internal/errors:983:15)
+1|revdmail |     at wrappedFn (node:internal/errors:537:14)
+1|revdmail |     at Socket.writeAfterFIN [as write] (node:net:576:14)
+1|revdmail |     at JSStreamSocket.doWrite (node:internal/js_stream_socket:199:19)
+1|revdmail |     at JSStream.onwrite (node:internal/js_stream_socket:35:57)
+1|revdmail |     at Socket._final (node:net:547:28)
+1|revdmail |     at prefinish (node:internal/streams/writable:916:14)
+1|revdmail |     at finishMaybe (node:internal/streams/writable:930:5)
+1|revdmail |     at Writable.end (node:internal/streams/writable:845:5)
+1|revdmail |     at Socket.end (node:net:738:31) {
+1|revdmail |   code: 'EPIPE',
+1|revdmail |   source: 'socket'
+1|revdmail | }
+
+/root/.pm2/logs/revdmail-out.log last 20 lines:
+1|revdmail | 🔄 Fresh connection returned 0 messages — retrying in 2s…
+1|revdmail | [dotenv@17.2.3] injecting env (7) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+1|revdmail | ✅ Server running at http://0.0.0.0:3000
+1|revdmail | 🔌 Connecting to IMAP…
+1|revdmail | ✅ IMAP connected
+1|revdmail | 🔄 Fresh connection returned 0 messages — retrying in 2s…
+1|revdmail | [dotenv@17.2.3] injecting env (7) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+1|revdmail | ✅ Server running at http://0.0.0.0:3000
+1|revdmail | 🔌 Connecting to IMAP…
+1|revdmail | ✅ IMAP connected
+1|revdmail | 🔄 Fresh connection returned 0 messages — retrying in 2s…
+1|revdmail | [dotenv@17.2.3] injecting env (7) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+1|revdmail | ✅ Server running at http://0.0.0.0:3000
+1|revdmail | 🔌 Connecting to IMAP…
+1|revdmail | ✅ IMAP connected
+1|revdmail | 🔄 Fresh connection returned 0 messages — retrying in 2s…
+1|revdmail | [dotenv@17.2.3] injecting env (7) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+1|revdmail | ✅ Server running at http://0.0.0.0:3000
+1|revdmail | 🔌 Connecting to IMAP…
+1|revdmail | ✅ IMAP connected
+
+1|revdmail  | 🔄 Fresh connection returned 0 messages — retrying in 2s…

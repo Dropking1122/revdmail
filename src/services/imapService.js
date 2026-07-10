@@ -212,7 +212,24 @@ async function fetchImapMessages(tempEmail, limit = 20) {
 
         const { allMail, spam } = await getSpecialFolders(connection);
 
-        const searchCriteria = [['HEADER', 'TO', tempEmail]];
+        // Search across multiple headers — Cloudflare Email Routing may preserve
+        // the original recipient in TO, DELIVERED-TO, or X-Original-To depending
+        // on the forwarding method used.
+        const domain = tempEmail.split('@')[1] || '';
+        const searchCriteria = [
+            ['OR',
+                ['HEADER', 'TO', tempEmail],
+                ['OR',
+                    ['HEADER', 'DELIVERED-TO', tempEmail],
+                    ['OR',
+                        ['HEADER', 'X-Original-To', tempEmail],
+                        ['HEADER', 'CC', tempEmail]
+                    ]
+                ]
+            ]
+        ];
+
+        console.log(`🔍 Searching for: ${tempEmail}`);
         const fetchOptions = { bodies: ['HEADER', 'TEXT', ''], markSeen: false };
 
         // Deduplicate by Message-ID across folders
@@ -221,6 +238,7 @@ async function fetchImapMessages(tempEmail, limit = 20) {
         async function fetchFromFolder(folderName) {
             await connection.openBox(folderName);
             const msgs = await connection.search(searchCriteria, fetchOptions);
+            console.log(`   📂 ${folderName}: ${msgs.length} result(s)`);
             msgs.forEach(m => {
                 const headerPart = m.parts.find(p => p.which === 'HEADER');
                 let msgId = null;
@@ -311,6 +329,43 @@ async function fetchImapMessages(tempEmail, limit = 20) {
     }
 }
 
+// ─── Debug: fetch recent emails without any filter ────────────────────────────
+// Returns last N emails with their raw TO/DELIVERED-TO/X-Original-To headers
+// so the caller can see exactly how forwarded mail looks in Gmail.
+async function fetchRecentRaw(limit = 5) {
+    try {
+        const connection = await getImapConnection();
+        const { allMail } = await getSpecialFolders(connection);
+        await connection.openBox(allMail);
+
+        const msgs = await connection.search(['ALL'], {
+            bodies: ['HEADER'],
+            markSeen: false
+        });
+
+        const recent = msgs
+            .sort((a, b) => new Date(b.attributes.date) - new Date(a.attributes.date))
+            .slice(0, limit);
+
+        return recent.map(m => {
+            const h = m.parts.find(p => p.which === 'HEADER')?.body || {};
+            return {
+                uid:            m.attributes.uid,
+                date:           m.attributes.date,
+                subject:        (h.subject || [''])[0],
+                to:             (h.to || []).join(', '),
+                'delivered-to': (h['delivered-to'] || []).join(', '),
+                'x-original-to':(h['x-original-to'] || []).join(', '),
+                'x-forwarded-to':(h['x-forwarded-to'] || []).join(', '),
+                cc:             (h.cc || []).join(', '),
+                from:           (h.from || [''])[0],
+            };
+        });
+    } catch (err) {
+        return [{ error: err.message }];
+    }
+}
+
 // ─── Warm up connection on startup ───────────────────────────────────────────
 // Connect eagerly so the first user request is instant.
 if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.IMAP_SERVER) {
@@ -321,4 +376,4 @@ if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.IMAP_SERVE
     }, 1000);
 }
 
-module.exports = { fetchImapMessages };
+module.exports = { fetchImapMessages, fetchRecentRaw };

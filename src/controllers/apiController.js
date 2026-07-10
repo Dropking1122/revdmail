@@ -1,5 +1,6 @@
 const { generateRandomPrefix } = require('../utils/nameGenerator');
 const imapService = require('../services/imapService');
+const { fetchRecentRaw } = imapService;
 
 function getAvailableDomains() {
     const domainsEnv = process.env.AVAILABLE_DOMAINS;
@@ -85,4 +86,10 @@ async function getDomains(req, res) {
     res.json({ domains });
 }
 
-module.exports = { createEmail, listEmails, deleteEmail, getMessages, getDomains };
+async function debugEmails(req, res) {
+    const limit = Math.min(parseInt(req.query.limit || '5'), 20);
+    const recent = await fetchRecentRaw(limit);
+    res.json({ recent });
+}
+
+module.exports = { createEmail, listEmails, deleteEmail, getMessages, getDomains, debugEmails };
