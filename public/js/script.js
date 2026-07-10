@@ -796,3 +796,29 @@ function closeAboutPage() {
 
 window.openAboutPage  = openAboutPage;
 window.closeAboutPage = closeAboutPage;
+
+// ─── Donasi Page ──────────────────────────────────────────────────────────────
+
+function openDonasiPage() {
+    document.getElementById('donasiPage')?.classList.add('active');
+    document.getElementById('mainCard')?.classList.add('donasi-active');
+}
+
+function closeDonasiPage() {
+    document.getElementById('donasiPage')?.classList.remove('active');
+    document.getElementById('mainCard')?.classList.remove('donasi-active');
+}
+
+function copyRek(elId, btn) {
+    const text = document.getElementById(elId)?.textContent?.trim();
+    if (!text) return;
+    navigator.clipboard?.writeText(text).catch(() => fallbackCopy(text));
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon> Tersalin!';
+    btn.classList.add('text-green-600', '!bg-green-50');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-600', '!bg-green-50'); }, 2000);
+}
+
+window.openDonasiPage  = openDonasiPage;
+window.closeDonasiPage = closeDonasiPage;
+window.copyRek         = copyRek;

@@ -142,13 +142,23 @@
         }
         #gmailGeneratorPage.active { transform: translateX(0); }
 
-        /* Hide inbox chrome when Gmail Generator or About page is open */
+        /* Hide inbox chrome when Gmail Generator, About, or Donasi page is open */
         #mainCard.gmail-gen-active > header,
         #mainCard.gmail-gen-active > #inboxToolbar,
         #mainCard.about-active > header,
-        #mainCard.about-active > #inboxToolbar {
+        #mainCard.about-active > #inboxToolbar,
+        #mainCard.donasi-active > header,
+        #mainCard.donasi-active > #inboxToolbar {
             display: none;
         }
+
+        /* Donasi page slide */
+        #donasiPage {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex !important;
+        }
+        #donasiPage.active { transform: translateX(0); }
 
         /* About page slide */
         #aboutPage {
@@ -232,6 +242,10 @@
         <!-- Nav extra -->
         <nav>
             <ul class="flex flex-col gap-1">
+                <li class="nav-item" onclick="openDonasiPage(); if(window.setSidebar) setSidebar(false);" style="cursor:pointer">
+                    <ion-icon name="heart-outline" class="text-xl shrink-0 text-pink-500"></ion-icon>
+                    <span>Donasi</span>
+                </li>
                 <li class="nav-item" onclick="openAboutPage(); if(window.setSidebar) setSidebar(false);" style="cursor:pointer">
                     <ion-icon name="information-circle-outline" class="text-xl shrink-0"></ion-icon>
                     <span>Tentang</span>
@@ -422,6 +436,109 @@
                     <div id="gmailGenList"
                         class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800">
                         <!-- Populated by JS -->
+                    </div>
+                </section>
+
+                <!-- ─── Donasi Page ────────────────────────────────────────── -->
+                <section id="donasiPage"
+                    class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+
+                    <!-- Header -->
+                    <header class="shrink-0 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/30">
+                        <div class="flex items-center gap-3 px-4 py-4">
+                            <button onclick="closeDonasiPage()"
+                                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shrink-0 transition-all hover:border-slate-300 active:scale-90">
+                                <ion-icon name="arrow-back-outline" class="text-lg"></ion-icon>
+                            </button>
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <div class="w-8 h-8 bg-pink-50 dark:bg-pink-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                    <ion-icon name="heart" class="text-pink-500 text-base"></ion-icon>
+                                </div>
+                                <h1 class="text-lg font-bold text-slate-900 dark:text-white truncate">Donasi</h1>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Content -->
+                    <div class="flex-1 overflow-y-auto custom-scrollbar">
+                        <div class="max-w-lg mx-auto px-6 py-8 flex flex-col gap-6">
+
+                            <!-- Hero -->
+                            <div class="text-center flex flex-col items-center gap-3">
+                                <div class="w-16 h-16 bg-pink-50 dark:bg-pink-900/20 rounded-3xl flex items-center justify-center shadow-lg shadow-pink-100 dark:shadow-none">
+                                    <ion-icon name="heart" class="text-pink-500 text-3xl"></ion-icon>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Dukung REVDMAIL</h2>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                                        Jika layanan ini bermanfaat untukmu, donasi kecil sangat berarti untuk menjaga server tetap berjalan. Terima kasih! 🙏
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- QR Code -->
+                            <div class="flex flex-col items-center gap-3">
+                                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Scan QR Code</p>
+                                <div class="bg-white dark:bg-white rounded-3xl p-3 shadow-xl shadow-slate-200/60 dark:shadow-none border border-slate-100">
+                                    <img src="/images/qr-donasi.png" alt="QR Code Donasi"
+                                        class="w-56 h-56 object-contain rounded-2xl">
+                                </div>
+                                <p class="text-xs text-slate-400 dark:text-slate-500">DANA · GoPay · ShopeePay · SeaBank</p>
+                            </div>
+
+                            <!-- Rekening -->
+                            <div class="flex flex-col gap-3">
+                                <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Atau Transfer Manual</p>
+
+                                <!-- DANA/GoPay/ShopeePay -->
+                                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                                    <div class="px-4 py-3 bg-gradient-to-r from-blue-50 to-green-50 dark:from-slate-700 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-base">💙</span>
+                                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">DANA / GoPay / ShopeePay</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between px-4 py-3">
+                                        <span id="rekDana" class="font-mono font-bold text-lg text-slate-800 dark:text-slate-100 tracking-wider">088214672165</span>
+                                        <button onclick="copyRek('rekDana', this)"
+                                            class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-xl text-xs font-semibold transition-all active:scale-95">
+                                            <ion-icon name="copy-outline" class="text-sm"></ion-icon>
+                                            Salin
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- SeaBank -->
+                                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                                    <div class="px-4 py-3 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-slate-700 dark:to-slate-700 border-b border-slate-100 dark:border-slate-600">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-base">🌊</span>
+                                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">SeaBank</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between px-4 py-3">
+                                        <span id="rekSea" class="font-mono font-bold text-lg text-slate-800 dark:text-slate-100 tracking-wider">901484142620</span>
+                                        <button onclick="copyRek('rekSea', this)"
+                                            class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-primary-50 dark:hover:bg-primary-900/30 text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-xl text-xs font-semibold transition-all active:scale-95">
+                                            <ion-icon name="copy-outline" class="text-sm"></ion-icon>
+                                            Salin
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Footer note -->
+                            <div class="flex flex-col items-center gap-1 pt-2">
+                                <p class="text-xs text-slate-400 dark:text-slate-600 text-center">
+                                    Donasi berapapun sangat membantu kami. Terima kasih atas dukunganmu! ❤️
+                                </p>
+                                <a href="https://revd.dev" target="_blank" rel="noopener noreferrer"
+                                    class="text-xs font-semibold text-slate-400 dark:text-slate-600 hover:text-primary-600 dark:hover:text-primary-400 transition-colors mt-1">
+                                    revd.dev
+                                </a>
+                            </div>
+
+                        </div>
                     </div>
                 </section>
 
