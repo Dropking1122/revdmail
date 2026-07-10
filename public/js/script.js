@@ -781,3 +781,18 @@ window.openGmailGeneratorPage  = openGmailGeneratorPage;
 window.closeGmailGeneratorPage = closeGmailGeneratorPage;
 window.generateGmailDotVariants = generateGmailDotVariants;
 window.copyAllGmailVariants     = copyAllGmailVariants;
+
+// ─── About Page ───────────────────────────────────────────────────────────────
+
+function openAboutPage() {
+    document.getElementById('aboutPage')?.classList.add('active');
+    document.getElementById('mainCard')?.classList.add('about-active');
+}
+
+function closeAboutPage() {
+    document.getElementById('aboutPage')?.classList.remove('active');
+    document.getElementById('mainCard')?.classList.remove('about-active');
+}
+
+window.openAboutPage  = openAboutPage;
+window.closeAboutPage = closeAboutPage;

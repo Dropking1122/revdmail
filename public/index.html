@@ -142,11 +142,21 @@
         }
         #gmailGeneratorPage.active { transform: translateX(0); }
 
-        /* Hide inbox chrome when Gmail Generator page is open */
+        /* Hide inbox chrome when Gmail Generator or About page is open */
         #mainCard.gmail-gen-active > header,
-        #mainCard.gmail-gen-active > #inboxToolbar {
+        #mainCard.gmail-gen-active > #inboxToolbar,
+        #mainCard.about-active > header,
+        #mainCard.about-active > #inboxToolbar {
             display: none;
         }
+
+        /* About page slide */
+        #aboutPage {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex !important;
+        }
+        #aboutPage.active { transform: translateX(0); }
 
         /* Domain dropdown */
         #domainOptions { display: none; }
@@ -219,8 +229,18 @@
             </ul>
         </nav>
 
-        <!-- Theme toggle -->
-        <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
+        <!-- Nav extra -->
+        <nav>
+            <ul class="flex flex-col gap-1">
+                <li class="nav-item" onclick="openAboutPage(); if(window.setSidebar) setSidebar(false);" style="cursor:pointer">
+                    <ion-icon name="information-circle-outline" class="text-xl shrink-0"></ion-icon>
+                    <span>Tentang</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Theme toggle + copyright -->
+        <div class="flex flex-col gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <div class="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-2xl">
                 <span class="text-sm font-medium text-slate-500 dark:text-slate-400 px-2">Theme</span>
                 <button id="themeToggle"
@@ -229,6 +249,9 @@
                     <ion-icon id="themeIcon" name="sunny-outline"></ion-icon>
                 </button>
             </div>
+            <p class="text-center text-xs text-slate-400 dark:text-slate-600 pb-1">
+                &copy; 2025 <span class="font-semibold text-slate-500 dark:text-slate-500">REVDSTORE</span>. All rights reserved.
+            </p>
         </div>
     </aside>
 
@@ -399,6 +422,145 @@
                     <div id="gmailGenList"
                         class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800">
                         <!-- Populated by JS -->
+                    </div>
+                </section>
+
+                <!-- ─── About Page ─────────────────────────────────────────── -->
+                <section id="aboutPage"
+                    class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+
+                    <!-- Page header -->
+                    <header class="shrink-0 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/30">
+                        <div class="flex items-center gap-3 px-4 py-4">
+                            <button onclick="closeAboutPage()"
+                                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shrink-0 transition-all hover:border-slate-300 active:scale-90">
+                                <ion-icon name="arrow-back-outline" class="text-lg"></ion-icon>
+                            </button>
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                                <div class="w-8 h-8 bg-primary-50 dark:bg-primary-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                    <ion-icon name="information-circle-outline" class="text-primary-500 text-base"></ion-icon>
+                                </div>
+                                <h1 class="text-lg font-bold text-slate-900 dark:text-white truncate">Tentang REVDMAIL</h1>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Content -->
+                    <div class="flex-1 overflow-y-auto custom-scrollbar">
+                        <div class="max-w-lg mx-auto px-6 py-8 flex flex-col gap-8">
+
+                            <!-- Logo & tagline -->
+                            <div class="flex flex-col items-center text-center gap-4">
+                                <div class="w-20 h-20 bg-primary-600 rounded-3xl flex items-center justify-center shadow-xl shadow-primary-500/30">
+                                    <ion-icon name="mail-unread" class="text-white text-4xl"></ion-icon>
+                                </div>
+                                <div>
+                                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">REVDMAIL</h2>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Layanan email temporer gratis</p>
+                                </div>
+                            </div>
+
+                            <!-- Deskripsi -->
+                            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
+                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
+                                    <ion-icon name="sparkles-outline" class="text-primary-500"></ion-icon>
+                                    Apa itu REVDMAIL?
+                                </h3>
+                                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    REVDMAIL adalah layanan email temporer yang memungkinkan kamu membuat alamat email sekali pakai secara instan. Cocok untuk mendaftar ke website, menerima kode verifikasi, atau menjaga privasi tanpa menggunakan email utama kamu.
+                                </p>
+                            </div>
+
+                            <!-- Fitur -->
+                            <div>
+                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                                    <ion-icon name="list-outline" class="text-primary-500"></ion-icon>
+                                    Fitur Utama
+                                </h3>
+                                <div class="flex flex-col gap-3">
+                                    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div class="w-9 h-9 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                            <ion-icon name="shuffle-outline" class="text-blue-500"></ion-icon>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-sm text-slate-800 dark:text-slate-200">Email Acak Instan</p>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Generate alamat email acak dalam satu klik, langsung siap digunakan.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div class="w-9 h-9 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                            <ion-icon name="create-outline" class="text-purple-500"></ion-icon>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-sm text-slate-800 dark:text-slate-200">Alamat Kustom</p>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Buat alamat email dengan username pilihanmu sendiri.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div class="w-9 h-9 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                            <ion-icon name="logo-google" class="text-red-500"></ion-icon>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-sm text-slate-800 dark:text-slate-200">Gmail DOT Trick Generator</p>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Generate ratusan variasi alamat Gmail menggunakan trik titik — semua masuk ke satu inbox.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div class="w-9 h-9 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                            <ion-icon name="refresh-outline" class="text-green-500"></ion-icon>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-sm text-slate-800 dark:text-slate-200">Auto-Refresh</p>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Inbox diperbarui otomatis setiap 15 detik — tidak perlu refresh manual.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                                        <div class="w-9 h-9 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-center shrink-0">
+                                            <ion-icon name="moon-outline" class="text-amber-500"></ion-icon>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-sm text-slate-800 dark:text-slate-200">Dark Mode</p>
+                                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tampilan terang dan gelap tersedia, menyesuaikan preferensimu.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cara pakai -->
+                            <div>
+                                <h3 class="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                                    <ion-icon name="help-circle-outline" class="text-primary-500"></ion-icon>
+                                    Cara Menggunakan
+                                </h3>
+                                <ol class="flex flex-col gap-3">
+                                    <li class="flex items-start gap-3">
+                                        <span class="w-6 h-6 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">1</span>
+                                        <p class="text-sm text-slate-600 dark:text-slate-400">Klik <strong class="text-slate-800 dark:text-slate-200">New Address</strong> untuk membuat alamat email temporer baru secara acak.</p>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="w-6 h-6 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">2</span>
+                                        <p class="text-sm text-slate-600 dark:text-slate-400">Salin alamat email dan gunakan untuk mendaftar di website atau layanan apapun.</p>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="w-6 h-6 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">3</span>
+                                        <p class="text-sm text-slate-600 dark:text-slate-400">Tunggu email masuk — inbox akan diperbarui otomatis setiap 15 detik.</p>
+                                    </li>
+                                    <li class="flex items-start gap-3">
+                                        <span class="w-6 h-6 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">4</span>
+                                        <p class="text-sm text-slate-600 dark:text-slate-400">Baca email langsung di halaman ini tanpa perlu membuka aplikasi email lain.</p>
+                                    </li>
+                                </ol>
+                            </div>
+
+                            <!-- Footer copyright -->
+                            <div class="flex flex-col items-center gap-1 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <p class="text-xs text-slate-400 dark:text-slate-600">
+                                    &copy; 2025 <span class="font-semibold text-slate-500 dark:text-slate-500">REVDSTORE</span>. All rights reserved.
+                                </p>
+                                <p class="text-xs text-slate-400 dark:text-slate-600">Dibuat dengan ❤️ untuk menjaga privasi kamu.</p>
+                            </div>
+
+                        </div>
                     </div>
                 </section>
 
