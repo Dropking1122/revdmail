@@ -1,5 +1,8 @@
 const express = require('express');
 const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 // Check Environment Variables
@@ -18,9 +21,27 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
+// Security headers. CSP is left off the default helmet policy because this
+// page loads Tailwind, Ionicons, DOMPurify, and Google Fonts from external
+// CDNs — an unconfigured CSP would just block them. A properly scoped CSP
+// should be added when those third-party scripts are pinned/self-hosted.
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression());
+
 // Middleware
 app.use(express.json());
 app.use(express.static('public'));
+
+// Rate limit the whole API — there is no auth in front of any endpoint, so
+// this is the main defense against enumeration/abuse (e.g. brute-forcing
+// email addresses or hammering the IMAP connection).
+const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use('/api', apiLimiter);
 
 // Routes
 app.use('/api', apiRoutes);

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 let maleNames = [];
 let femaleNames = [];
@@ -25,15 +26,17 @@ loadNames();
 
 function generateRandomPrefix() {
     const allNames = [...maleNames, ...femaleNames];
-    if (allNames.length === 0) {
-        return 'user' + Math.floor(Math.random() * 100000);
-    }
+    const base = allNames.length === 0
+        ? 'user'
+        : allNames[Math.floor(Math.random() * allNames.length)].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-    const randomName = allNames[Math.floor(Math.random() * allNames.length)];
-    // Clean name (remove non-alphanumeric if needed, but usually assume txt is clean)
-    const cleanName = randomName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    const randomNum = Math.floor(Math.random() * 1000);
-    return `${cleanName}${randomNum}`;
+    // Cryptographically random suffix instead of Math.random() 0-999.
+    // A name + 3 digit number only has ~1000 combinations per name, which is
+    // brute-forceable given this app has no per-address ownership check.
+    // 6 hex chars (~16.7M combinations per name) makes addresses effectively
+    // unguessable while still looking human-readable.
+    const randomSuffix = crypto.randomBytes(3).toString('hex');
+    return `${base}${randomSuffix}`;
 }
 
 module.exports = { generateRandomPrefix };

@@ -83,7 +83,11 @@ function buildImapConfig() {
             host: process.env.IMAP_SERVER,
             port: parseInt(process.env.IMAP_PORT || '993'),
             tls: true,
-            tlsOptions: { rejectUnauthorized: false },
+            // Verify the IMAP server's TLS certificate by default (prevents MITM
+            // on mailbox credentials and email contents). Only disable this for a
+            // known self-signed provider by setting IMAP_ALLOW_INSECURE_TLS=true,
+            // and never do so in production.
+            tlsOptions: { rejectUnauthorized: process.env.IMAP_ALLOW_INSECURE_TLS !== 'true' },
             authTimeout: 15000,
             connTimeout: 15000,
             // Proper keepalive object — forceNoop ensures a command is sent
@@ -202,6 +206,21 @@ async function getSpecialFolders(connection) {
     return cachedFolders;
 }
 
+// ─── Exclusive access queue ────────────────────────────────────────────────────
+// The IMAP connection is a single shared object across all requests, and which
+// folder is "open" is state that lives on that connection. If two requests run
+// openBox()/search() concurrently (easy in Node's non-blocking I/O), one
+// request's folder switch can interleave with another's search, corrupting
+// results. Serialize every operation that touches the active folder through
+// this queue so only one openBox+search sequence runs at a time.
+let imapQueue = Promise.resolve();
+
+function runExclusive(task) {
+    const result = imapQueue.then(task, task);
+    imapQueue = result.then(() => {}, () => {});
+    return result;
+}
+
 // ─── Message fetching ─────────────────────────────────────────────────────────
 
 async function fetchImapMessages(tempEmail, limit = 20) {
@@ -236,8 +255,10 @@ async function fetchImapMessages(tempEmail, limit = 20) {
         const messageMap = new Map();
 
         async function fetchFromFolder(folderName) {
-            await connection.openBox(folderName);
-            const msgs = await connection.search(searchCriteria, fetchOptions);
+            const msgs = await runExclusive(async () => {
+                await connection.openBox(folderName);
+                return connection.search(searchCriteria, fetchOptions);
+            });
             console.log(`   📂 ${folderName}: ${msgs.length} result(s)`);
             msgs.forEach(m => {
                 const headerPart = m.parts.find(p => p.which === 'HEADER');
@@ -336,11 +357,13 @@ async function fetchRecentRaw(limit = 5) {
     try {
         const connection = await getImapConnection();
         const { allMail } = await getSpecialFolders(connection);
-        await connection.openBox(allMail);
 
-        const msgs = await connection.search(['ALL'], {
-            bodies: ['HEADER'],
-            markSeen: false
+        const msgs = await runExclusive(async () => {
+            await connection.openBox(allMail);
+            return connection.search(['ALL'], {
+                bodies: ['HEADER'],
+                markSeen: false
+            });
         });
 
         const recent = msgs

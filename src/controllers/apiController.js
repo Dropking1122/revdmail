@@ -31,16 +31,15 @@ async function createEmail(req, res) {
         if (!/^[a-zA-Z0-9._-]+$/.test(customUser)) {
             return res.status(400).json({ error: "Invalid username. Use letters, numbers, dot, underscore or hyphen." });
         }
+        if (customUser.length > 64) {
+            return res.status(400).json({ error: "Username too long (max 64 characters)." });
+        }
         prefix = customUser;
     } else {
         prefix = generateRandomPrefix();
     }
 
     return res.json({ email: `${prefix}@${domainName}`, expires_at: null });
-}
-
-async function listEmails(req, res) {
-    res.json({ generated_emails: [] });
 }
 
 async function deleteEmail(req, res) {
@@ -56,7 +55,12 @@ async function deleteEmail(req, res) {
         return res.status(403).json({ error: `Domain @${emailDomain} is not allowed.` });
     }
 
-    return res.json({ message: `Successfully removed ${emailToRemove}` });
+    // There is no per-address store on the server (addresses are just strings
+    // backed by a shared IMAP mailbox), so nothing is actually deleted server
+    // side. Say so honestly instead of claiming an action that did not happen.
+    return res.json({
+        message: `${emailToRemove} cleared from this session. Mail already delivered to the shared mailbox is not deleted.`
+    });
 }
 
 async function getMessages(req, res) {
@@ -87,7 +91,10 @@ async function getMessages(req, res) {
     const { messages, error } = await imapService.fetchImapMessages(tempEmail);
 
     if (error) {
-        return res.status(500).json({ error });
+        // Log the real cause server side, but don't leak IMAP host/auth
+        // internals to the client.
+        console.error(`IMAP fetch error for ${tempEmail}:`, error);
+        return res.status(503).json({ error: 'Mailbox temporarily unavailable, please retry.' });
     }
 
     res.json({ messages });
@@ -111,9 +118,18 @@ async function getDomains(req, res) {
 }
 
 async function debugEmails(req, res) {
+    // Dumps raw headers (subject, from, to, delivered-to, x-original-to) from
+    // the shared mailbox across ALL users of this app, with no filtering by
+    // address and no authentication. This must never be reachable in
+    // production — it was a developer-only tool for inspecting how forwarded
+    // mail headers look, not a public API.
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(404).end();
+    }
+
     const limit = Math.min(parseInt(req.query.limit || '5'), 20);
     const recent = await fetchRecentRaw(limit);
     res.json({ recent });
 }
 
-module.exports = { createEmail, listEmails, deleteEmail, getMessages, getDomains, debugEmails, gmailGenerator };
+module.exports = { createEmail, deleteEmail, getMessages, getDomains, debugEmails, gmailGenerator };

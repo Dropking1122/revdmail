@@ -431,43 +431,35 @@ function escapeHtml(text) {
 }
 
 /**
- * Sanitize HTML email body.
- * Removes: <script>, <iframe>, <object>, <embed>, <form>, <meta>, <link>
- * Removes: on* event attributes, javascript: hrefs, data: URLs in src/href
+ * Sanitize HTML email body using DOMPurify (battle-tested allowlist sanitizer)
+ * instead of a hand-rolled tag/attribute blocklist. Email HTML is third-party,
+ * untrusted content, so this must not rely on a denylist that is easy to miss
+ * a vector for (SVG event handlers, <style> based CSS injection, encoded
+ * javascript: URIs, etc).
  */
 function sanitizeHtml(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    if (typeof DOMPurify === 'undefined') {
+        // Fail closed: if the sanitizer library did not load, do not render
+        // untrusted HTML at all.
+        console.error('DOMPurify not loaded — refusing to render email HTML.');
+        return '';
+    }
 
-    // Remove dangerous elements
-    const dangerous = ['script', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'];
-    dangerous.forEach(tag => {
-        doc.querySelectorAll(tag).forEach(el => el.remove());
+    const clean = DOMPurify.sanitize(html, {
+        FORBID_TAGS: ['style', 'form', 'input', 'button'],
+        FORBID_ATTR: ['style'],
+        ADD_ATTR: ['target']
     });
 
-    // Walk all elements and clean attributes
-    doc.body.querySelectorAll('*').forEach(el => {
-        // Remove on* event handlers
-        Array.from(el.attributes).forEach(attr => {
-            if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-        });
-
-        // Sanitize href and src — block javascript: and data: URIs
-        ['href', 'src', 'action'].forEach(attr => {
-            const val = el.getAttribute(attr);
-            if (val && /^\s*(javascript|data|vbscript):/i.test(val)) {
-                el.removeAttribute(attr);
-            }
-        });
-
-        // Open external links in new tab safely
-        if (el.tagName === 'A') {
-            el.setAttribute('target', '_blank');
-            el.setAttribute('rel', 'noopener noreferrer');
-        }
+    // Open links in a new tab safely (DOMPurify already strips javascript:/data: URIs)
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = clean;
+    wrapper.querySelectorAll('a').forEach(a => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
     });
 
-    return doc.body.innerHTML;
+    return wrapper.innerHTML;
 }
 
 function formatTime(dateStr) {
@@ -676,7 +668,7 @@ function closeGmailGeneratorPage() {
 
 async function generateGmailDotVariants() {
     const email = gmailGenInput ? gmailGenInput.value.trim() : '';
-    if (!email) { showToast('Masukkan alamat Gmail terlebih dahulu'); return; }
+    if (!email) { showToast('Please enter a Gmail address first'); return; }
 
     const btn = document.getElementById('gmailGenBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
@@ -685,13 +677,13 @@ async function generateGmailDotVariants() {
         const res = await fetch(`${API_BASE}/gmail-generator?email=${encodeURIComponent(email)}`);
         const data = await res.json();
 
-        if (!res.ok) { showToast(data.error || 'Gagal generate variasi'); return; }
+        if (!res.ok) { showToast(data.error || 'Failed to generate variants'); return; }
 
         gmailVariantsCache = data.variants || [];
         renderGmailVariants(data.variants, data.truncated, data.total);
     } catch (err) {
         console.error('Gmail generator error:', err);
-        showToast('Terjadi kesalahan');
+        showToast('Something went wrong');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
     }
@@ -702,7 +694,7 @@ function renderGmailVariants(variants, truncated, total) {
     gmailGenList.innerHTML = '';
 
     if (!variants || variants.length === 0) {
-        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">Tidak ada variasi ditemukan.</p>`;
+        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">No variants found.</p>`;
         if (gmailGenStats) gmailGenStats.classList.add('hidden');
         return;
     }
@@ -711,8 +703,8 @@ function renderGmailVariants(variants, truncated, total) {
     if (gmailGenStats) gmailGenStats.classList.remove('hidden');
     if (gmailGenCount) {
         gmailGenCount.textContent = truncated
-            ? `Menampilkan 200 dari ${total} variasi`
-            : `${total} variasi ditemukan`;
+            ? `Showing 200 of ${total} variants`
+            : `${total} variants found`;
     }
 
     variants.forEach((v, idx) => {
@@ -727,7 +719,7 @@ function renderGmailVariants(variants, truncated, total) {
                     class="copy-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
                     <ion-icon name="copy-outline" class="text-base pointer-events-none"></ion-icon>
                 </button>
-                <button data-email="${escapeHtml(v)}" title="Gunakan alamat ini"
+                <button data-email="${escapeHtml(v)}" title="Use this address"
                     class="use-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
                     <ion-icon name="checkmark-circle-outline" class="text-base pointer-events-none"></ion-icon>
                 </button>
@@ -745,7 +737,7 @@ function renderGmailVariants(variants, truncated, total) {
         if (copyBtn) {
             const addr = copyBtn.dataset.email;
             navigator.clipboard?.writeText(addr).catch(() => fallbackCopy(addr));
-            showToast(`📋 ${addr} disalin!`);
+            showToast(`📋 ${addr} copied!`);
         } else if (useBtn) {
             useGmailVariant(useBtn.dataset.email);
         }
@@ -762,14 +754,14 @@ function useGmailVariant(email) {
     stopPolling();
     startPolling();
     closeGmailGeneratorPage();
-    showToast(`✅ Menggunakan ${email}`);
+    showToast(`✅ Now using ${email}`);
 }
 
 function copyAllGmailVariants() {
     if (!gmailVariantsCache.length) return;
     const text = gmailVariantsCache.join('\n');
     navigator.clipboard?.writeText(text)
-        .then(() => showToast(`📋 ${gmailVariantsCache.length} alamat disalin!`))
+        .then(() => showToast(`📋 ${gmailVariantsCache.length} addresses copied!`))
         .catch(() => fallbackCopy(text));
 }
 

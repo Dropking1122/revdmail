@@ -19,10 +19,12 @@ Workflow: **Start application** — runs on port 5000.
 | `IMAP_PASSWORD` | IMAP password or app password |
 | `IMAP_SERVER` | IMAP hostname, e.g. `imap.gmail.com` |
 | `IMAP_PORT` | (optional) IMAP port, defaults to `993` |
+| `IMAP_ALLOW_INSECURE_TLS` | (optional) Set to `true` only for IMAP servers with self-signed certs. Never set in production. |
+| `NODE_ENV` | Set to `production` in Replit Deployments (Replit does this automatically). Disables the `/api/debug/emails` endpoint. |
 
 Set all of these in **Replit Secrets** before the app can fetch mail.
 
-**Status:** Dependencies installed and the app runs (workflow "Start application" on port 5000). The IMAP secrets above have not been provided yet, so mail fetching returns "IMAP configuration missing" — the UI otherwise loads and works. Ask the user for these secrets (via the environment-secrets flow) when they're ready to enable real mail fetching.
+**Status:** Dependencies installed and the app runs (workflow "Start application" on port 5000). The IMAP secrets above have not been provided yet, so mail fetching returns "Mailbox temporarily unavailable" — the UI otherwise loads and works.
 
 ## Stack
 
