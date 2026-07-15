@@ -22,6 +22,8 @@ Workflow: **Start application** — runs on port 5000.
 
 Set all of these in **Replit Secrets** before the app can fetch mail.
 
+**Status:** Dependencies installed and the app runs (workflow "Start application" on port 5000). The IMAP secrets above have not been provided yet, so mail fetching returns "IMAP configuration missing" — the UI otherwise loads and works. Ask the user for these secrets (via the environment-secrets flow) when they're ready to enable real mail fetching.
+
 ## Stack
 
 - **Backend**: Node.js + Express 5, `imap-simple`, `mailparser`, `dotenv`
