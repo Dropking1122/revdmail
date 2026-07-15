@@ -776,7 +776,14 @@ window.copyAllGmailVariants     = copyAllGmailVariants;
 
 // ─── About Page ───────────────────────────────────────────────────────────────
 
+function closeAllOverlayPages() {
+    document.getElementById('aboutPage')?.classList.remove('active');
+    document.getElementById('donasiPage')?.classList.remove('active');
+    document.getElementById('mainCard')?.classList.remove('about-active', 'donasi-active');
+}
+
 function openAboutPage() {
+    closeAllOverlayPages();
     document.getElementById('aboutPage')?.classList.add('active');
     document.getElementById('mainCard')?.classList.add('about-active');
 }
@@ -792,6 +799,7 @@ window.closeAboutPage = closeAboutPage;
 // ─── Donasi Page ──────────────────────────────────────────────────────────────
 
 function openDonasiPage() {
+    closeAllOverlayPages();
     document.getElementById('donasiPage')?.classList.add('active');
     document.getElementById('mainCard')?.classList.add('donasi-active');
 }
