@@ -119,7 +119,7 @@ function startKeepAlive() {
             await runExclusive(async () => {
                 if (activeConnection && activeConnection.imap && activeConnection.imap.state === 'authenticated') {
                     await new Promise((resolve, reject) => {
-                        activeConnection.imap.noop((err) => {
+                        activeConnection.imap.status(activeFolder || 'INBOX', (err) => {
                             if (err) reject(err);
                             else resolve();
                         });

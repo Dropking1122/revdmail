@@ -8,12 +8,20 @@ let selectedDomain = '';
 let activeAbortController = null;
 let consecutiveEmptyPolls = 0;
 const EMPTY_POLLS_BEFORE_CLEAR = 3;
+let currentDetectedOtp = null;
+let currentDetailText = '';
+
+// Countdown Timer State
+let countdownSeconds = 15;
+let countdownInterval = null;
 
 // DOM Elements
-const activeEmailDisplay = document.getElementById('activeEmailDisplay');
 const currentEmailText = document.getElementById('currentEmailText');
+const mobileEmailText = document.getElementById('mobileEmailText');
+const sidebarEmailDisplay = document.getElementById('sidebarEmailDisplay');
 const emailListContainer = document.getElementById('emailList');
 const emptyState = document.getElementById('emptyState');
+const skeletonLoading = document.getElementById('skeletonLoading');
 const customDomainSelector = document.getElementById('customDomainSelector');
 const domainTrigger = document.getElementById('domainTrigger');
 const domainOptions = document.getElementById('domainOptions');
@@ -24,12 +32,94 @@ const detailSenderName = document.getElementById('detailSenderName');
 const detailSenderEmail = document.getElementById('detailSenderEmail');
 const senderAvatar = document.getElementById('senderAvatar');
 const detailDate = document.getElementById('detailDate');
+const detailRecipient = document.getElementById('detailRecipient');
 const detailBody = document.getElementById('detailBody');
-const sidebar = document.getElementById('sidebar');
-const toast = document.getElementById('toast');
+const detailOtpBanner = document.getElementById('detailOtpBanner');
+const detailOtpCode = document.getElementById('detailOtpCode');
 const searchInput = document.getElementById('searchInput');
+const msgCountBadge = document.getElementById('msgCount');
+const liveSyncStatus = document.getElementById('liveSyncStatus');
+const liveSyncText = document.getElementById('liveSyncText');
 
-// ─── Domain Management ───────────────────────────────────────────────────────
+// ─── OTP / VERIFICATION CODE PARSER ───────────────────────────────────────────
+
+function extractOTP(subject, bodyText) {
+    const text = `${subject || ''} ${bodyText || ''}`.trim();
+    if (!text) return null;
+
+    // Pattern 1: Explicit labels (code/kode/otp/pin/token/verifikasi/verification)
+    const labelMatch = text.match(/(?:code|kode|otp|pin|token|verifikasi|verification)[\s:=#\-]*([0-9]{4,8}|[A-Z0-9]{5,8})\b/i);
+    if (labelMatch && labelMatch[1]) {
+        return labelMatch[1];
+    }
+
+    // Pattern 2: Standalone 4-8 digits in known transactional/security contexts
+    if (/(?:canva|google|facebook|instagram|telegram|whatsapp|discord|github|twitter|x\.com|apple|microsoft|login|verify|masuk|daftar|konfirmasi)/i.test(text)) {
+        const numMatch = text.match(/\b([0-9]{4,8})\b/);
+        if (numMatch && numMatch[1]) {
+            return numMatch[1];
+        }
+    }
+
+    return null;
+}
+
+window.copyOTP = async function (code) {
+    if (!code) return;
+    try {
+        await navigator.clipboard.writeText(code);
+        showToast(`Kode OTP ${code} berhasil disalin!`, 'success');
+    } catch {
+        showToast(`Kode OTP: ${code}`, 'info');
+    }
+};
+
+window.copyDetectedOtp = function () {
+    if (currentDetectedOtp) {
+        copyOTP(currentDetectedOtp);
+    }
+};
+
+// ─── COUNTDOWN PROGRESS BAR ───────────────────────────────────────────────────
+
+function resetCountdown() {
+    countdownSeconds = 15;
+    updateCountdownUI();
+}
+
+function updateCountdownUI() {
+    const timerLabel = document.getElementById('refreshTimerLabel');
+    const progressBar = document.getElementById('refreshProgressBar');
+    if (timerLabel) {
+        timerLabel.textContent = `Perbarui: ${countdownSeconds}s`;
+    }
+    if (progressBar) {
+        const pct = Math.max(0, Math.min(100, (countdownSeconds / 15) * 100));
+        progressBar.style.width = `${pct}%`;
+    }
+}
+
+function startCountdown() {
+    stopCountdown();
+    countdownSeconds = 15;
+    updateCountdownUI();
+    countdownInterval = setInterval(() => {
+        countdownSeconds--;
+        if (countdownSeconds <= 0) {
+            countdownSeconds = 15;
+        }
+        updateCountdownUI();
+    }, 1000);
+}
+
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+}
+
+// ─── DOMAIN MANAGEMENT ────────────────────────────────────────────────────────
 
 async function loadDomainsFromAPI() {
     try {
@@ -42,7 +132,7 @@ async function loadDomainsFromAPI() {
             }
         }
     } catch (err) {
-        console.warn('⚠️ Gagal memuat daftar domain dari API:', err);
+        console.warn('Gagal memuat daftar domain dari API:', err);
     }
     return false;
 }
@@ -51,7 +141,7 @@ async function initializeDomainSelector() {
     await loadDomainsFromAPI();
 
     if (availableDomains.length === 0) {
-        availableDomains = ['milmil.web.id'];
+        availableDomains = ['revd.me'];
     }
 
     const savedDomain = localStorage.getItem('selectedDomain');
@@ -81,6 +171,10 @@ function renderDomainOptions() {
     if (selectedDomainText) {
         selectedDomainText.textContent = `@${selectedDomain}`;
     }
+    const customModalDomain = document.getElementById('customModalDomainDisplay');
+    if (customModalDomain) {
+        customModalDomain.textContent = `@${selectedDomain}`;
+    }
     if (!domainOptions) return;
 
     domainOptions.innerHTML = '';
@@ -88,12 +182,15 @@ function renderDomainOptions() {
         const option = document.createElement('button');
         const isSelected = domain === selectedDomain;
         option.className = [
-            'w-full text-left px-4 py-3 text-sm font-medium rounded-xl transition-all',
+            'w-full text-left px-4 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between',
             isSelected
-                ? 'bg-primary-600 text-white font-semibold'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
         ].join(' ');
-        option.textContent = `@${domain}`;
+        option.innerHTML = `
+            <span>@${escapeHtml(domain)}</span>
+            ${isSelected ? '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon>' : ''}
+        `;
         option.setAttribute('type', 'button');
         option.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -117,302 +214,367 @@ async function selectDomain(domain) {
     customDomainSelector.classList.remove('active');
     if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
-    showToast(`Beralih ke @${selectedDomain}…`);
-    await generateEmail();
+    showToast(`Beralih ke domain @${selectedDomain}`, 'info');
+    await generateEmail(true);
 }
 
-// ─── Initialization & Lifecycle ───────────────────────────────────────────────
+// ─── EMAIL DISPLAY & PERSISTENCE ──────────────────────────────────────────────
 
-async function init() {
-    const params = new URLSearchParams(window.location.search);
-    const queryEmail = params.get('email');
-    if (queryEmail && queryEmail.includes('@')) {
-        currentEmail = queryEmail.trim().toLowerCase();
-        localStorage.setItem('currentEmail', currentEmail);
-        updateCurrentEmailUI();
-        startPolling();
-        showToast(`Mengakses ${currentEmail}`);
-        return;
-    }
-
-    const savedEmail = localStorage.getItem('currentEmail');
-    if (savedEmail) {
-        currentEmail = savedEmail.trim().toLowerCase();
-        updateCurrentEmailUI();
-        startPolling();
-        showToast(`Mengakses ${currentEmail}`);
-        return;
-    }
-
-    await generateEmail();
+function updateActiveEmailDisplays(email) {
+    if (currentEmailText) currentEmailText.textContent = email || 'Memuat...';
+    if (mobileEmailText) mobileEmailText.textContent = email || 'Memuat...';
+    if (sidebarEmailDisplay) sidebarEmailDisplay.textContent = email || 'Memuat...';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await initializeDomainSelector();
-    await init();
-});
-
-// Pause polling when browser tab is inactive to save battery and network
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        stopPolling();
-    } else {
-        if (currentEmail) {
-            fetchMessages();
-            startPolling();
+function saveCurrentEmail(email) {
+    currentEmail = email;
+    if (email) {
+        localStorage.setItem('tempEmail', email);
+        const parts = email.split('@');
+        if (parts.length === 2 && availableDomains.includes(parts[1])) {
+            selectedDomain = parts[1];
+            localStorage.setItem('selectedDomain', selectedDomain);
+            renderDomainOptions();
         }
+    } else {
+        localStorage.removeItem('tempEmail');
     }
-});
+    updateActiveEmailDisplays(email);
+}
 
-// ─── API Calls ────────────────────────────────────────────────────────────────
+// ─── CREATE & SWITCH EMAIL ───────────────────────────────────────────────────
 
-let isGenerating = false;
-
-async function generateEmail() {
-    if (isGenerating) return;
-    isGenerating = true;
-
+async function generateEmail(forceNew = false) {
     if (activeAbortController) {
         activeAbortController.abort();
+        activeAbortController = null;
     }
 
+    if (!forceNew) {
+        const saved = localStorage.getItem('tempEmail');
+        if (saved && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(saved)) {
+            saveCurrentEmail(saved);
+            consecutiveEmptyPolls = 0;
+            allMessages = [];
+            renderEmailList();
+            showSkeleton(true);
+            await fetchMessages();
+            startPolling();
+            return;
+        }
+    }
+
+    showSkeleton(true);
     try {
-        setLoading(true);
         const res = await fetch(`${API_BASE}/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domain: selectedDomain })
         });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
+        if (data.email) {
+            saveCurrentEmail(data.email);
+            consecutiveEmptyPolls = 0;
+            allMessages = [];
+            renderEmailList();
+            showToast(`Alamat baru siap: ${data.email}`, 'success');
+            await fetchMessages();
+            startPolling();
+        }
+    } catch (err) {
+        showSkeleton(false);
+        showToast('Gagal membuat alamat baru. Coba lagi.', 'error');
+    }
+}
+
+async function generateCustomEmail() {
+    const input = document.getElementById('customUsernameInput');
+    const username = (input ? input.value : '').trim();
+
+    if (!username) {
+        showToast('Masukkan username pilihanmu.', 'error');
+        return;
+    }
+
+    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+        showToast('Username hanya boleh huruf, angka, titik, minus, dan underscore.', 'error');
+        return;
+    }
+
+    showSkeleton(true);
+    closeCustomModal();
+
+    try {
+        const res = await fetch(`${API_BASE}/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: selectedDomain, username })
+        });
+
+        const data = await res.json();
         if (!res.ok) {
-            showToast(data.error || 'Gagal membuat alamat email.');
+            showSkeleton(false);
+            showToast(data.error || 'Gagal membuat alamat kustom.', 'error');
             return;
         }
 
         if (data.email) {
-            currentEmail = data.email.toLowerCase();
-            localStorage.setItem('currentEmail', currentEmail);
-            allMessages = [];
+            saveCurrentEmail(data.email);
             consecutiveEmptyPolls = 0;
-            filterAndRender();
-            updateCurrentEmailUI();
+            allMessages = [];
+            renderEmailList();
+            showToast(`Alamat kustom dibuat: ${data.email}`, 'success');
+            await fetchMessages();
             startPolling();
-            showToast('Alamat baru siap digunakan!');
         }
     } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error('❌ Error creating email:', err);
-            showToast('Gagal membuat alamat email.');
-        }
-    } finally {
-        isGenerating = false;
-        setLoading(false);
+        showSkeleton(false);
+        showToast('Terjadi kesalahan jaringan.', 'error');
     }
 }
 
-async function fetchMessages() {
+async function accessExistingEmail() {
+    const input = document.getElementById('accessEmailInput');
+    const email = (input ? input.value : '').trim().toLowerCase();
+
+    if (!email || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+        showToast('Format email tidak valid.', 'error');
+        return;
+    }
+
+    closeAccessModal();
+    showSkeleton(true);
+    saveCurrentEmail(email);
+    consecutiveEmptyPolls = 0;
+    allMessages = [];
+    renderEmailList();
+
+    showToast(`Memeriksa kotak masuk ${email}…`, 'info');
+    await fetchMessages();
+    startPolling();
+}
+
+// ─── FETCH & RENDER MESSAGES ──────────────────────────────────────────────────
+
+function showSkeleton(show) {
+    if (skeletonLoading) {
+        skeletonLoading.classList.toggle('hidden', !show);
+    }
+    if (show && emptyState) {
+        emptyState.classList.add('opacity-0', 'pointer-events-none');
+    }
+}
+
+async function fetchMessages(isManual = false) {
     if (!currentEmail) return;
 
     if (activeAbortController) {
         activeAbortController.abort();
     }
     activeAbortController = new AbortController();
-    const queryEmail = currentEmail;
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) refreshBtn.classList.add('rotating');
+    if (liveSyncText) liveSyncText.textContent = 'Menyinkronkan...';
 
     try {
-        const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(queryEmail)}`, {
+        const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`, {
             signal: activeAbortController.signal
         });
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            showToast(err.error || 'Gagal memeriksa pesan.');
+        if (res.status === 403) {
+            showToast('Alamat email ditolak oleh server.', 'error');
+            stopPolling();
+            showSkeleton(false);
             return;
         }
 
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const data = await res.json();
+        const incoming = (data && Array.isArray(data.messages)) ? data.messages : [];
 
-        // Check if user changed email while request was awaiting
-        if (currentEmail !== queryEmail) return;
-
-        if (Array.isArray(data.messages)) {
-            if (data.messages.length > 0) {
-                consecutiveEmptyPolls = 0;
-                allMessages = data.messages;
-                filterAndRender();
-            } else {
-                consecutiveEmptyPolls++;
-                if (consecutiveEmptyPolls >= EMPTY_POLLS_BEFORE_CLEAR) {
-                    allMessages = [];
-                    filterAndRender();
-                }
+        if (incoming.length === 0) {
+            consecutiveEmptyPolls++;
+            if (consecutiveEmptyPolls >= EMPTY_POLLS_BEFORE_CLEAR) {
+                allMessages = [];
             }
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.warn('Gagal memuat pesan:', err.message);
-        }
-    }
-}
-
-async function deleteCurrentEmail() {
-    if (!currentEmail) return;
-
-    if (!confirm(`Hapus alamat ${currentEmail}?\n\nAlamat baru akan dibuat secara otomatis.`)) {
-        return;
-    }
-
-    if (activeAbortController) {
-        activeAbortController.abort();
-    }
-
-    try {
-        const res = await fetch(`${API_BASE}/delete?email=${encodeURIComponent(currentEmail)}`, {
-            method: 'DELETE'
-        });
-
-        if (res.ok) {
-            showToast('Alamat berhasil dibersihkan.');
-            currentEmail = null;
-            allMessages = [];
-            localStorage.removeItem('currentEmail');
-            stopPolling();
-            filterAndRender();
-            updateCurrentEmailUI();
-            await generateEmail();
         } else {
-            showToast('Gagal menghapus alamat.');
+            consecutiveEmptyPolls = 0;
+            allMessages = incoming;
+        }
+
+        renderEmailList();
+        resetCountdown();
+        if (isManual) {
+            showToast(incoming.length > 0 ? `${incoming.length} pesan ditemukan` : 'Belum ada email baru', 'info');
         }
     } catch (err) {
-        console.error('Error deleting:', err);
-        showToast('Terjadi kesalahan saat menghapus.');
+        if (err.name === 'AbortError') return;
+        console.warn('Gagal memuat pesan:', err);
+    } finally {
+        showSkeleton(false);
+        if (refreshBtn) refreshBtn.classList.remove('rotating');
+        if (liveSyncText) liveSyncText.textContent = 'Live Sync';
     }
 }
 
-// ─── UI Logic ─────────────────────────────────────────────────────────────────
-
-function updateCurrentEmailUI() {
-    const text = currentEmail || 'Tidak Ada Email Aktif';
-
-    if (currentEmailText) currentEmailText.textContent = text;
-
-    const mobileEl = document.getElementById('mobileEmailText');
-    if (mobileEl) mobileEl.textContent = text;
-
-    if (activeEmailDisplay) {
-        activeEmailDisplay.style.display = currentEmail ? '' : 'none';
-    }
-}
-
-function filterAndRender() {
-    const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
-    const filtered = query
-        ? allMessages.filter(msg =>
-            (msg.subject || '').toLowerCase().includes(query) ||
-            (msg.from || '').toLowerCase().includes(query) ||
-            (msg.from_email || '').toLowerCase().includes(query) ||
-            (msg.text || '').toLowerCase().includes(query)
-          )
-        : allMessages;
-
-    renderEmailList(filtered);
-}
-
-function renderEmailList(messages) {
+function renderEmailList() {
     if (!emailListContainer) return;
 
-    emailListContainer.innerHTML = '';
+    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    const filtered = query
+        ? allMessages.filter(m =>
+            (m.subject && m.subject.toLowerCase().includes(query)) ||
+            (m.from && m.from.toLowerCase().includes(query)) ||
+            (m.intro && m.intro.toLowerCase().includes(query))
+        )
+        : allMessages;
 
-    const countBadge = document.getElementById('msgCount');
-    if (countBadge) {
-        if (messages && messages.length > 0) {
-            countBadge.textContent = messages.length;
-            countBadge.classList.remove('hidden');
-        } else {
-            countBadge.classList.add('hidden');
-        }
+    // Update message count badges
+    if (msgCountBadge) {
+        msgCountBadge.textContent = filtered.length;
+        msgCountBadge.classList.toggle('hidden', filtered.length === 0);
     }
 
-    if (!messages || messages.length === 0) {
+    if (filtered.length === 0) {
+        emailListContainer.innerHTML = '';
         if (emptyState) {
-            emptyState.classList.replace('opacity-0', 'opacity-100');
-            emptyState.classList.remove('pointer-events-none');
+            emptyState.classList.remove('opacity-0', 'pointer-events-none');
+            emptyState.classList.add('opacity-100');
         }
         return;
     }
 
     if (emptyState) {
-        emptyState.classList.replace('opacity-100', 'opacity-0');
-        emptyState.classList.add('pointer-events-none');
+        emptyState.classList.add('opacity-0', 'pointer-events-none');
+        emptyState.classList.remove('opacity-100');
     }
 
-    const sorted = [...messages].sort((a, b) => new Date(b.date) - new Date(a.date));
+    emailListContainer.innerHTML = '';
 
-    sorted.forEach(msg => {
+    filtered.forEach(msg => {
         const row = document.createElement('div');
-        row.className = 'email-row group';
-        row.setAttribute('role', 'button');
-        row.setAttribute('tabindex', '0');
+        row.className = 'flex items-start gap-3.5 p-4 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-colors active:bg-slate-100 dark:active:bg-slate-800';
+
+        const senderName = parseSenderName(msg.from);
+        const senderEmail = parseSenderEmail(msg.from);
+        const initial = (senderName || 'A').charAt(0).toUpperCase();
+        const dateStr = formatDate(msg.date);
+        const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
 
         row.innerHTML = `
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="sender-avatar-sm">${escapeHtml((msg.from || 'U').charAt(0).toUpperCase())}</div>
-                <div class="flex flex-col min-w-0">
-                    <span class="font-semibold text-slate-900 dark:text-white truncate text-sm group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${escapeHtml(msg.from || 'Unknown')}</span>
-                    <span class="text-sm text-slate-600 dark:text-slate-300 truncate font-medium">${escapeHtml(msg.subject || '(Tidak Ada Subjek)')}</span>
-                    <span class="text-xs text-slate-400 dark:text-slate-500 truncate">${escapeHtml(msg.text ? msg.text.substring(0, 80) : '')}</span>
-                </div>
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+                ${escapeHtml(initial)}
             </div>
-            <div class="text-right shrink-0 flex flex-col items-end gap-1">
-                <span class="text-xs font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">${formatTime(msg.date)}</span>
-                <span class="w-2 h-2 rounded-full bg-primary-500 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2 mb-0.5">
+                    <span class="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                        ${escapeHtml(senderName)}
+                    </span>
+                    <time class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
+                        ${escapeHtml(dateStr)}
+                    </time>
+                </div>
+                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mb-1">
+                    ${escapeHtml(msg.subject || '(Tanpa Subjek)')}
+                </div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                    ${escapeHtml(msg.intro || msg.text || '(Tidak ada teks pratinjau)')}
+                </div>
+                ${otp ? `
+                    <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/80 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200">
+                        <span class="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold uppercase tracking-wider">KODE:</span>
+                        <span class="font-mono text-sm tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-700 text-slate-900 dark:text-white font-black">${escapeHtml(otp)}</span>
+                        <button onclick="event.stopPropagation(); copyOTP('${escapeHtml(otp)}')"
+                            class="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold rounded-lg uppercase tracking-wider transition-colors active:scale-95 ml-1">
+                            SALIN
+                        </button>
+                    </div>
+                ` : ''}
             </div>
         `;
 
-        row.onclick = () => openDetail(msg);
-        row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openDetail(msg); });
-
+        row.addEventListener('click', () => openDetail(msg));
         emailListContainer.appendChild(row);
     });
 }
 
-function openDetail(msg) {
-    detailView.classList.add('active');
+// ─── DETAIL VIEW & SANDBOXED EMAIL RENDERING ─────────────────────────────────
 
-    detailSubject.textContent = msg.subject || '(Tidak Ada Subjek)';
+async function openDetail(msg) {
+    if (!detailView) return;
 
-    let senderName = msg.from || 'Unknown';
-    if (senderName.includes('<')) {
-        senderName = senderName.split('<')[0].trim().replace(/^["']|["']$/g, '');
+    detailSubject.textContent = msg.subject || '(Tanpa Subjek)';
+    detailSenderName.textContent = parseSenderName(msg.from);
+    detailSenderEmail.textContent = `<${parseSenderEmail(msg.from)}>`;
+    detailRecipient.textContent = currentEmail;
+    detailDate.textContent = formatFullDate(msg.date);
+    senderAvatar.textContent = (parseSenderName(msg.from) || 'A').charAt(0).toUpperCase();
+
+    // Check & display detected OTP
+    const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
+    currentDetectedOtp = otp;
+    if (detailOtpBanner && detailOtpCode) {
+        if (otp) {
+            detailOtpBanner.classList.remove('hidden');
+            detailOtpCode.textContent = otp;
+        } else {
+            detailOtpBanner.classList.add('hidden');
+        }
     }
 
-    detailSenderName.textContent = senderName;
-    detailSenderEmail.textContent = msg.from_email ? `<${msg.from_email}>` : '';
+    // Shimmer inside detail while loading full body
+    detailBody.innerHTML = `
+        <div class="space-y-4 p-4 animate-pulse">
+            <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
+            <div class="h-3 bg-slate-100 dark:bg-slate-850 rounded w-full"></div>
+            <div class="h-3 bg-slate-100 dark:bg-slate-850 rounded w-5/6"></div>
+            <div class="h-3 bg-slate-100 dark:bg-slate-850 rounded w-2/3"></div>
+        </div>
+    `;
 
-    const date = new Date(msg.date);
-    const opts = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-    detailDate.textContent = isNaN(date) ? '' : date.toLocaleDateString('id-ID', opts);
+    detailView.classList.add('active');
 
-    const recipientEl = document.getElementById('detailRecipient');
-    if (recipientEl) recipientEl.textContent = currentEmail || '';
+    let fullHtml = msg.html || null;
+    let fullText = msg.text || msg.intro || null;
 
-    senderAvatar.textContent = (msg.from || 'U').charAt(0).toUpperCase();
+    if (!fullHtml && (!fullText || fullText.length < 50)) {
+        try {
+            const res = await fetch(`${API_BASE}/message/${msg.id}?email=${encodeURIComponent(currentEmail)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.message) {
+                    fullHtml = data.message.html || fullHtml;
+                    fullText = data.message.text || fullText;
+                }
+            }
+        } catch (err) {
+            console.warn('Gagal memuat body pesan lengkap:', err);
+        }
+    }
 
-    // Secure HTML isolation using a sandboxed iframe
-    if (msg.html) {
-        const clean = (typeof DOMPurify !== 'undefined')
-            ? DOMPurify.sanitize(msg.html, {
+    currentDetailText = fullText || '';
+    renderEmailBody(fullHtml, fullText);
+}
+
+function renderEmailBody(htmlContent, textContent) {
+    if (!detailBody) return;
+
+    if (htmlContent) {
+        const cleanHtml = (typeof DOMPurify !== 'undefined')
+            ? DOMPurify.sanitize(htmlContent, {
                 FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
                 ADD_ATTR: ['target']
             })
-            : msg.html;
+            : htmlContent;
 
         const iframe = document.createElement('iframe');
-        iframe.className = 'w-full h-full border-0 min-h-[480px] bg-white rounded-2xl';
+        iframe.className = 'w-full h-full border-0 min-h-[480px] bg-white dark:bg-slate-900 rounded-xl';
         iframe.setAttribute('sandbox', 'allow-popups allow-popups-to-escape-sandbox');
-
         detailBody.innerHTML = '';
         detailBody.appendChild(iframe);
 
@@ -424,116 +586,61 @@ function openDetail(msg) {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <base target="_blank">
                 <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b; margin: 16px; word-break: break-word; }
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 14px;
+                        line-height: 1.6;
+                        color: #1e293b;
+                        margin: 16px;
+                        word-break: break-word;
+                    }
                     img { max-width: 100% !important; height: auto !important; }
                     table { max-width: 100% !important; }
                     a { color: #2563eb; }
                 </style>
             </head>
             <body>
-                ${clean}
+                ${cleanHtml}
             </body>
             </html>
         `;
     } else {
-        detailBody.innerHTML = `<pre class="whitespace-pre-wrap font-sans text-sm p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-800 dark:text-slate-200">${escapeHtml(msg.text || '(Tidak Ada Konten)')}</pre>`;
+        detailBody.innerHTML = `
+            <pre class="whitespace-pre-wrap font-sans text-xs sm:text-sm p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
+                ${escapeHtml(textContent || '(Tidak ada konten teks)')}
+            </pre>
+        `;
     }
-
-    detailBody.scrollTop = 0;
 }
 
 function closeDetail() {
-    detailView.classList.remove('active');
+    if (detailView) detailView.classList.remove('active');
+    currentDetectedOtp = null;
+    currentDetailText = '';
 }
 
-function copyEmail() {
-    if (!currentEmail) return;
-
-    const text = currentEmail;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text)
-            .then(() => showToast('📋 Alamat berhasil disalin!'))
-            .catch(() => fallbackCopy(text));
-    } else {
-        fallbackCopy(text);
+window.copyDetailBody = function () {
+    if (!currentDetailText) {
+        showToast('Tidak ada teks untuk disalin.', 'info');
+        return;
     }
-}
+    navigator.clipboard.writeText(currentDetailText)
+        .then(() => showToast('Teks email disalin ke clipboard.', 'success'))
+        .catch(() => showToast('Gagal menyalin teks.', 'error'));
+};
 
-function fallbackCopy(text) {
-    const el = document.createElement('textarea');
-    el.value = text;
-    el.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-    document.body.appendChild(el);
-    el.focus();
-    el.select();
-    try {
-        document.execCommand('copy');
-        showToast('📋 Berhasil disalin!');
-    } catch {
-        showToast('Gagal menyalin otomatis, silakan salin manual.');
-    }
-    document.body.removeChild(el);
-}
+window.printEmail = function () {
+    window.print();
+};
 
-async function refreshInbox() {
-    const icon = document.querySelector('#refreshBtn ion-icon');
-    if (icon) icon.classList.add('rotating');
-
-    showToast('Memeriksa pesan masuk…');
-    await fetchMessages();
-
-    if (icon) icon.classList.remove('rotating');
-    showToast('Inbox diperbarui.');
-}
-
-function showToast(message) {
-    if (!toast) return;
-    const msg = document.getElementById('toastMessage');
-    if (msg) msg.textContent = message;
-    toast.classList.remove('opacity-0', 'translate-y-8');
-    toast.classList.add('opacity-100', 'translate-y-0');
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-8');
-        toast.classList.remove('opacity-100', 'translate-y-0');
-    }, 3000);
-}
-
-function setLoading(on) {
-    const btn = document.getElementById('generateBtn');
-    if (!btn) return;
-    const span = btn.querySelector('span');
-    if (span) span.textContent = on ? 'Membuat…' : 'New Address';
-    btn.disabled = on;
-    btn.classList.toggle('opacity-60', on);
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function escapeHtml(text) {
-    if (!text) return '';
-    return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function formatTime(dateStr) {
-    const date = new Date(dateStr);
-    if (isNaN(date)) return '';
-    const now = new Date();
-    if (date.toDateString() === now.toDateString()) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
+// ─── POLLING LIFECYCLE ────────────────────────────────────────────────────────
 
 function startPolling() {
     stopPolling();
-    fetchMessages();
-    pollingInterval = setInterval(fetchMessages, 15000);
+    startCountdown();
+    pollingInterval = setInterval(() => {
+        fetchMessages();
+    }, 15000);
 }
 
 function stopPolling() {
@@ -541,326 +648,301 @@ function stopPolling() {
         clearInterval(pollingInterval);
         pollingInterval = null;
     }
+    stopCountdown();
 }
 
-// ─── Search ───────────────────────────────────────────────────────────────────
-
-if (searchInput) {
-    searchInput.addEventListener('input', filterAndRender);
-    searchInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { filterAndRender(); searchInput.blur(); }
-        if (e.key === 'Escape') { searchInput.value = ''; filterAndRender(); }
-    });
-}
-
-// ─── Access Email Modal ───────────────────────────────────────────────────────
-
-const accessModal = document.getElementById('accessModal');
-const accessBtn = document.getElementById('accessBtn');
-const accessEmailInput = document.getElementById('accessEmailInput');
-
-function openAccessModal() {
-    if (accessModal) accessModal.classList.add('active');
-    if (window.setSidebar) window.setSidebar(false);
-    setTimeout(() => accessEmailInput && accessEmailInput.focus(), 100);
-}
-
-function closeAccessModal() {
-    if (accessModal) accessModal.classList.remove('active');
-    if (accessEmailInput) accessEmailInput.value = '';
-}
-
-async function accessExistingEmail() {
-    const email = accessEmailInput ? accessEmailInput.value.trim().toLowerCase() : '';
-
-    if (!email) { showToast('Masukkan alamat email.'); return; }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) { showToast('Format email tidak valid.'); return; }
-
-    const domain = email.split('@')[1];
-    const isGmail = (domain === 'gmail.com' || domain === 'googlemail.com');
-
-    if (!isGmail && !availableDomains.includes(domain)) {
-        showToast(`Domain @${domain} tidak didukung.`);
-        return;
-    }
-
-    currentEmail = email;
-    localStorage.setItem('currentEmail', currentEmail);
-    allMessages = [];
-    consecutiveEmptyPolls = 0;
-    filterAndRender();
-    updateCurrentEmailUI();
-    closeAccessModal();
-    stopPolling();
-    startPolling();
-    showToast(`Mengakses ${email}`);
-}
-
-if (accessModal) {
-    accessModal.addEventListener('click', e => { if (e.target === accessModal) closeAccessModal(); });
-}
-if (accessEmailInput) {
-    accessEmailInput.addEventListener('keydown', e => { if (e.key === 'Enter') accessExistingEmail(); });
-}
-if (accessBtn) {
-    accessBtn.addEventListener('click', openAccessModal);
-}
-
-// ─── Custom Email Modal ───────────────────────────────────────────────────────
-
-const customModal = document.getElementById('customModal');
-const customUsernameInput = document.getElementById('customUsernameInput');
-const customModalDomainDisplay = document.getElementById('customModalDomainDisplay');
-
-function openCustomModal() {
-    if (customModal) customModal.classList.add('active');
-    if (customModalDomainDisplay) customModalDomainDisplay.textContent = `@${selectedDomain}`;
-    if (window.setSidebar) window.setSidebar(false);
-    setTimeout(() => customUsernameInput && customUsernameInput.focus(), 100);
-}
-
-function closeCustomModal() {
-    if (customModal) customModal.classList.remove('active');
-    if (customUsernameInput) customUsernameInput.value = '';
-}
-
-async function generateCustomEmail() {
-    const username = customUsernameInput ? customUsernameInput.value.trim() : '';
-
-    if (!username) { showToast('Masukkan username pilihan.'); return; }
-    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-        showToast('Gunakan huruf, angka, titik, strip, atau underscore saja.');
-        return;
-    }
-
-    closeCustomModal();
-
-    if (activeAbortController) {
-        activeAbortController.abort();
-    }
-
-    try {
-        setLoading(true);
-        const res = await fetch(`${API_BASE}/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain: selectedDomain, username })
-        });
-        const data = await res.json();
-
-        if (!res.ok) { showToast(data.error || 'Gagal membuat alamat kustom.'); return; }
-
-        if (data.email) {
-            currentEmail = data.email.toLowerCase();
-            localStorage.setItem('currentEmail', currentEmail);
-            allMessages = [];
-            consecutiveEmptyPolls = 0;
-            filterAndRender();
-            updateCurrentEmailUI();
+// Automatic Pause/Resume on Visibility Change (Anti-Zombie Polling)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopPolling();
+        if (liveSyncText) liveSyncText.textContent = 'Dijeda';
+    } else {
+        if (currentEmail) {
+            if (liveSyncText) liveSyncText.textContent = 'Live Sync';
+            fetchMessages();
             startPolling();
-            showToast(`Dibuat: ${currentEmail}`);
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error('Error creating custom email:', err);
-            showToast('Gagal membuat alamat kustom.');
-        }
-    } finally {
-        setLoading(false);
-    }
-}
-
-if (customModal) {
-    customModal.addEventListener('click', e => { if (e.target === customModal) closeCustomModal(); });
-}
-if (customUsernameInput) {
-    customUsernameInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateCustomEmail(); });
-}
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-
-function toggleSidebar() {
-    if (sidebar) sidebar.classList.toggle('active');
-}
-
-document.addEventListener('click', e => {
-    if (sidebar && sidebar.classList.contains('active')) {
-        if (!sidebar.contains(e.target) && !e.target.closest('.mobile-menu-btn')) {
-            sidebar.classList.remove('active');
         }
     }
 });
 
-// ─── Generate button ──────────────────────────────────────────────────────────
-
-const generateBtn = document.getElementById('generateBtn');
-if (generateBtn) generateBtn.addEventListener('click', generateEmail);
-
-// Expose handlers to window
-window.generateEmail = generateEmail;
-window.openCustomModal = openCustomModal;
-window.closeCustomModal = closeCustomModal;
-window.generateCustomEmail = generateCustomEmail;
-window.openAccessModal = openAccessModal;
-window.closeAccessModal = closeAccessModal;
-window.accessExistingEmail = accessExistingEmail;
-window.refreshInbox = refreshInbox;
-window.deleteCurrentEmail = deleteCurrentEmail;
-window.closeDetail = closeDetail;
-window.copyEmail = copyEmail;
-window.toggleSidebar = toggleSidebar;
-
-// ─── Gmail Dot Trick Generator ────────────────────────────────────────────────
-
-let gmailVariantsCache = [];
-
-const gmailGeneratorPage = document.getElementById('gmailGeneratorPage');
-const gmailGenInput      = document.getElementById('gmailGenInput');
-const gmailGenList       = document.getElementById('gmailGenList');
-const gmailGenStats      = document.getElementById('gmailGenStats');
-const gmailGenCount      = document.getElementById('gmailGenCount');
+// ─── GMAIL VARIANT GENERATOR ──────────────────────────────────────────────────
 
 function openGmailGeneratorPage() {
-    if (gmailGeneratorPage) gmailGeneratorPage.classList.add('active');
-    document.getElementById('mainCard')?.classList.add('gmail-gen-active');
-    setTimeout(() => gmailGenInput && gmailGenInput.focus(), 300);
+    const page = document.getElementById('gmailGeneratorPage');
+    if (page) page.classList.add('active');
 }
 
 function closeGmailGeneratorPage() {
-    if (gmailGeneratorPage) gmailGeneratorPage.classList.remove('active');
-    document.getElementById('mainCard')?.classList.remove('gmail-gen-active');
+    const page = document.getElementById('gmailGeneratorPage');
+    if (page) page.classList.remove('active');
 }
 
 async function generateGmailDotVariants() {
-    const email = gmailGenInput ? gmailGenInput.value.trim() : '';
-    if (!email) { showToast('Masukkan alamat Gmail terlebih dahulu.'); return; }
+    const input = document.getElementById('gmailGenInput');
+    const email = (input ? input.value : '').trim().toLowerCase();
 
-    const btn = document.getElementById('gmailGenBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Memproses…'; }
-
-    try {
-        const res = await fetch(`${API_BASE}/gmail-generator?email=${encodeURIComponent(email)}`);
-        const data = await res.json();
-
-        if (!res.ok) { showToast(data.error || 'Gagal menghasilkan variasi.'); return; }
-
-        gmailVariantsCache = data.variants || [];
-        renderGmailVariants(data.variants, data.truncated, data.total);
-    } catch (err) {
-        console.error('Gmail generator error:', err);
-        showToast('Terjadi kesalahan saat membuat variasi.');
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
-    }
-}
-
-function renderGmailVariants(variants, truncated, total) {
-    if (!gmailGenList) return;
-    gmailGenList.innerHTML = '';
-
-    if (!variants || variants.length === 0) {
-        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">Tidak ada variasi yang ditemukan.</p>`;
-        if (gmailGenStats) gmailGenStats.classList.add('hidden');
+    if (!email || !email.includes('@gmail.com')) {
+        showToast('Masukkan alamat @gmail.com yang valid.', 'error');
         return;
     }
 
-    if (gmailGenStats) gmailGenStats.classList.remove('hidden');
-    if (gmailGenCount) {
-        gmailGenCount.textContent = truncated
-            ? `Menampilkan ${variants.length} dari ${total} variasi`
-            : `${total} variasi berhasil dibuat`;
-    }
+    const list = document.getElementById('gmailGenList');
+    const stats = document.getElementById('gmailGenStats');
+    const count = document.getElementById('gmailGenCount');
 
-    variants.forEach((v, idx) => {
-        const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 px-5 py-3 hover:bg-primary-50/60 dark:hover:bg-slate-800/60 transition-all group cursor-pointer';
-
-        row.innerHTML = `
-            <span class="text-xs font-bold text-slate-300 dark:text-slate-600 w-7 text-right shrink-0">${idx + 1}</span>
-            <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate font-mono">${escapeHtml(v)}</span>
-            <div class="flex items-center gap-1 shrink-0">
-                <button data-email="${escapeHtml(v)}" title="Salin Alamat"
-                    class="copy-variant-btn px-2.5 py-1.5 flex items-center gap-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-600 transition-all">
-                    <ion-icon name="copy-outline" class="text-sm pointer-events-none"></ion-icon>
-                    <span>Salin</span>
-                </button>
+    if (list) {
+        list.innerHTML = `
+            <div class="p-4 space-y-2 animate-pulse">
+                <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3"></div>
+                <div class="h-4 bg-slate-100 dark:bg-slate-850 rounded w-1/2"></div>
             </div>
         `;
+    }
 
-        gmailGenList.appendChild(row);
-    });
+    try {
+        const res = await fetch(`${API_BASE}/variants/gmail?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
 
-    gmailGenList.onclick = (e) => {
-        const copyBtn = e.target.closest('.copy-variant-btn');
-        if (copyBtn) {
-            const addr = copyBtn.dataset.email;
-            navigator.clipboard?.writeText(addr).catch(() => fallbackCopy(addr));
-            showToast(`📋 ${addr} berhasil disalin!`);
+        if (!res.ok) {
+            showToast(data.error || 'Gagal menghasilkan varian.', 'error');
+            if (list) list.innerHTML = '';
+            return;
         }
-    };
+
+        const variants = data.variants || [];
+        window.currentGmailVariants = variants;
+
+        if (count) count.textContent = `${variants.length} varian ditemukan`;
+        if (stats) stats.classList.remove('hidden');
+
+        if (list) {
+            list.innerHTML = '';
+            variants.forEach(variant => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl transition-colors';
+                item.innerHTML = `
+                    <span class="font-mono text-xs text-slate-800 dark:text-slate-200 truncate mr-2">${escapeHtml(variant)}</span>
+                    <button onclick="copySingleVariant('${escapeHtml(variant)}', this)"
+                        class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-primary-50 dark:hover:bg-primary-950/40 text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg text-xs font-semibold transition-colors active:scale-95 shrink-0">
+                        Salin
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+    } catch (err) {
+        showToast('Gagal menghubungi server.', 'error');
+        if (list) list.innerHTML = '';
+    }
 }
 
-function copyAllGmailVariants() {
-    if (!gmailVariantsCache.length) return;
-    const text = gmailVariantsCache.join('\n');
-    navigator.clipboard?.writeText(text)
-        .then(() => showToast(`📋 ${gmailVariantsCache.length} alamat berhasil disalin!`))
-        .catch(() => fallbackCopy(text));
-}
+window.copySingleVariant = function (text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(`Alamat ${text} disalin!`, 'success');
+        if (btn) {
+            const originalText = btn.textContent;
+            btn.textContent = 'Tersalin!';
+            btn.classList.add('text-emerald-600');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('text-emerald-600');
+            }, 1500);
+        }
+    });
+};
 
-if (gmailGenInput) {
-    gmailGenInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateGmailDotVariants(); });
-}
+window.copyAllGmailVariants = function () {
+    if (!window.currentGmailVariants || window.currentGmailVariants.length === 0) return;
+    const text = window.currentGmailVariants.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(`${window.currentGmailVariants.length} alamat berhasil disalin!`, 'success');
+    });
+};
 
-window.openGmailGeneratorPage = openGmailGeneratorPage;
-window.closeGmailGeneratorPage = closeGmailGeneratorPage;
-window.generateGmailDotVariants = generateGmailDotVariants;
-window.copyAllGmailVariants = copyAllGmailVariants;
-
-// ─── About & Donasi Pages ─────────────────────────────────────────────────────
-
-function closeAllOverlayPages() {
-    document.getElementById('aboutPage')?.classList.remove('active');
-    document.getElementById('donasiPage')?.classList.remove('active');
-    document.getElementById('mainCard')?.classList.remove('about-active', 'donasi-active');
-}
-
-function openAboutPage() {
-    closeAllOverlayPages();
-    document.getElementById('aboutPage')?.classList.add('active');
-    document.getElementById('mainCard')?.classList.add('about-active');
-}
-
-function closeAboutPage() {
-    document.getElementById('aboutPage')?.classList.remove('active');
-    document.getElementById('mainCard')?.classList.remove('about-active');
-}
+// ─── DONASI & ABOUT PAGES ─────────────────────────────────────────────────────
 
 function openDonasiPage() {
-    closeAllOverlayPages();
-    document.getElementById('donasiPage')?.classList.add('active');
-    document.getElementById('mainCard')?.classList.add('donasi-active');
+    const page = document.getElementById('donasiPage');
+    if (page) page.classList.add('active');
 }
 
 function closeDonasiPage() {
-    document.getElementById('donasiPage')?.classList.remove('active');
-    document.getElementById('mainCard')?.classList.remove('donasi-active');
+    const page = document.getElementById('donasiPage');
+    if (page) page.classList.remove('active');
 }
 
-function copyRek(elId, btn) {
-    const text = document.getElementById(elId)?.textContent?.trim();
-    if (!text) return;
-    navigator.clipboard?.writeText(text).catch(() => fallbackCopy(text));
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon> Tersalin!';
-    btn.classList.add('text-green-600', '!bg-green-50');
-    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-600', '!bg-green-50'); }, 2000);
+function openAboutPage() {
+    const page = document.getElementById('aboutPage');
+    if (page) page.classList.add('active');
 }
 
-window.openAboutPage  = openAboutPage;
-window.closeAboutPage = closeAboutPage;
-window.openDonasiPage  = openDonasiPage;
-window.closeDonasiPage = closeDonasiPage;
-window.copyRek         = copyRek;
+function closeAboutPage() {
+    const page = document.getElementById('aboutPage');
+    if (page) page.classList.remove('active');
+}
+
+window.copyRek = function (elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const num = el.textContent.trim();
+    navigator.clipboard.writeText(num).then(() => {
+        showToast(`Nomor ${num} disalin ke clipboard!`, 'success');
+        if (btn) {
+            const original = btn.innerHTML;
+            btn.innerHTML = '<span>Tersalin!</span>';
+            setTimeout(() => { btn.innerHTML = original; }, 1500);
+        }
+    });
+};
+
+// ─── MODAL CONTROLS ───────────────────────────────────────────────────────────
+
+function openAccessModal() {
+    const m = document.getElementById('accessModal');
+    if (m) m.classList.add('active');
+    const input = document.getElementById('accessEmailInput');
+    if (input) setTimeout(() => input.focus(), 50);
+}
+
+function closeAccessModal() {
+    const m = document.getElementById('accessModal');
+    if (m) m.classList.remove('active');
+}
+
+function openCustomModal() {
+    const m = document.getElementById('customModal');
+    if (m) m.classList.add('active');
+    const input = document.getElementById('customUsernameInput');
+    if (input) setTimeout(() => input.focus(), 50);
+}
+
+function closeCustomModal() {
+    const m = document.getElementById('customModal');
+    if (m) m.classList.remove('active');
+}
+
+// ─── TOAST NOTIFICATIONS ──────────────────────────────────────────────────────
+
+let toastTimeout = null;
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+    if (!toast || !toastMessage) return;
+
+    toastMessage.textContent = message;
+
+    if (toastIcon) {
+        if (type === 'success') {
+            toastIcon.setAttribute('name', 'checkmark-circle');
+            toastIcon.className = 'text-base text-emerald-400 shrink-0';
+        } else if (type === 'error') {
+            toastIcon.setAttribute('name', 'alert-circle');
+            toastIcon.className = 'text-base text-red-400 shrink-0';
+        } else {
+            toastIcon.setAttribute('name', 'information-circle');
+            toastIcon.className = 'text-base text-primary-400 dark:text-primary-600 shrink-0';
+        }
+    }
+
+    toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+    toast.classList.add('opacity-100', 'translate-y-0');
+
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+    }, 2800);
+}
+
+// ─── UTILITIES & HELPERS ──────────────────────────────────────────────────────
+
+function copyEmail() {
+    if (!currentEmail) return;
+    navigator.clipboard.writeText(currentEmail).then(() => {
+        showToast(`Alamat ${currentEmail} berhasil disalin!`, 'success');
+    }).catch(() => {
+        showToast(currentEmail, 'info');
+    });
+}
+
+function refreshInbox() {
+    fetchMessages(true);
+}
+
+async function deleteCurrentEmail() {
+    if (!currentEmail) return;
+
+    if (!confirm(`Hapus alamat ${currentEmail} dari sesi ini?`)) {
+        return;
+    }
+
+    try {
+        await fetch(`${API_BASE}/delete?email=${encodeURIComponent(currentEmail)}`, { method: 'DELETE' });
+    } catch {}
+
+    saveCurrentEmail(null);
+    allMessages = [];
+    renderEmailList();
+    showToast('Sesi email telah dihapus.', 'info');
+    generateEmail(true);
+}
+
+function parseSenderName(fromStr) {
+    if (!fromStr) return 'Pengirim';
+    const match = fromStr.match(/^"?(.*?)"?\s*<.*>$/);
+    return (match && match[1]) ? match[1].trim() : fromStr.split('@')[0];
+}
+
+function parseSenderEmail(fromStr) {
+    if (!fromStr) return '';
+    const match = fromStr.match(/<([^>]+)>/);
+    return match ? match[1].trim() : fromStr.trim();
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+
+    return isToday
+        ? d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+}
+
+function formatFullDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('id-ID', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// ─── INITIALIZATION ───────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (searchInput) {
+        searchInput.addEventListener('input', () => renderEmailList());
+    }
+
+    await initializeDomainSelector();
+    await generateEmail(false);
+});
