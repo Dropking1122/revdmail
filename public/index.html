@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="description" content="REVDMAIL – Layanan temporary email cepat, aman, dan tanpa registrasi. Dilengkapi pendeteksi kode OTP otomatis dan Gmail Dot Trick.">
-    <title>REVDMAIL – Temp Mail & Kotak Masuk Sementara</title>
+    <meta name="description" content="REVDMAIL – Temporary email cepat, aman, dan tanpa registrasi. Dilengkapi pendeteksi kode OTP otomatis dan Gmail Generator.">
+    <title>REVDMAIL – Temp Mail & Inbox Sementara</title>
     <link rel="icon" type="image/png" href="favicon.png">
 
     <!-- Fonts: Inter & JetBrains Mono -->
@@ -32,35 +32,20 @@
                             700: '#1d4ed8',
                             800: '#1e40af',
                             900: '#1e3a8a',
-                            950: '#172554',
+                            950: '#172554'
                         },
                         slate: {
-                            850: '#111827',
-                            925: '#0b0f19',
-                            950: '#070b12'
+                            850: '#151f32',
+                            950: '#070b14'
                         }
                     },
                     fontFamily: {
-                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-                    },
-                    keyframes: {
-                        'slide-up': {
-                            '0%':   { transform: 'translateY(16px)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)',    opacity: '1' },
-                        },
-                        'fade-in': {
-                            '0%':   { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        }
-                    },
-                    animation: {
-                        'slide-up': 'slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        'fade-in':  'fade-in 0.15s ease-out'
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
                     }
                 }
             }
-        }
+        };
     </script>
 
     <!-- Ionicons -->
@@ -68,244 +53,353 @@
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 
     <!-- DOMPurify -->
-    <script src="https://unpkg.com/dompurify@3.2.4/dist/purify.min.js"></script>
-
-    <style type="text/tailwindcss">
-        @layer base {
-            html, body {
-                height: 100%;
-                height: 100dvh;
-                overflow: hidden;
-            }
-            body {
-                @apply font-sans bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-primary-500 selection:text-white;
-                padding-bottom: env(safe-area-inset-bottom, 0px);
-            }
-        }
-        @layer components {
-            .btn-primary {
-                @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-sm shadow-primary-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-500/40;
-            }
-            .btn-secondary {
-                @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs sm:text-sm transition-all shadow-sm active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-            }
-            .nav-item {
-                @apply flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-850 transition-all cursor-pointer font-medium text-sm;
-            }
-            .nav-item.active {
-                @apply bg-primary-50 dark:bg-primary-950/50 text-primary-600 dark:text-primary-400 font-semibold border border-primary-100 dark:border-primary-900/40;
-            }
-            .modal {
-                @apply fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity;
-            }
-            .modal.active {
-                @apply flex;
-            }
-            .icon-btn {
-                @apply w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-            }
-            .custom-scrollbar::-webkit-scrollbar { @apply w-1.5; }
-            .custom-scrollbar::-webkit-scrollbar-track { @apply bg-transparent; }
-            .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600; }
-        }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 
     <style>
-        .rotating { animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        #sidebar {
-            transform: translateX(-100%);
-            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        html, body {
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: #f8fafc;
         }
-        @media (min-width: 1024px) {
-            #sidebar { transform: none; position: relative; }
-        }
-        #sidebar.active { transform: translateX(0); }
 
-        #sidebarOverlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 55;
-            background: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(4px);
+        .dark html, .dark body {
+            background-color: #0b0f19;
         }
-        #sidebarOverlay.active { display: block; }
 
-        #emailDetailView,
-        #gmailGeneratorPage,
-        #donasiPage,
-        #aboutPage {
+        body {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(148, 163, 184, 0.4);
+            border-radius: 9999px;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(51, 65, 85, 0.6);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(100, 116, 139, 0.7);
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background-color: #2563eb;
+            color: #ffffff;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.875rem;
+            background-color: #ffffff;
+            color: #334155;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            transition: all 0.15s ease;
+        }
+
+        .dark .btn-secondary {
+            background-color: #1e293b;
+            color: #cbd5e1;
+            border-color: #334155;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .dark .btn-secondary:hover {
+            background-color: #334155;
+            color: #ffffff;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.98);
+        }
+
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.625rem;
+            color: #64748b;
+            transition: all 0.15s ease;
+        }
+
+        .dark .icon-btn {
+            color: #94a3b8;
+        }
+
+        .icon-btn:hover {
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .dark .icon-btn:hover {
+            background-color: #1e293b;
+            color: #f8fafc;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.625rem 0.875rem;
+            border-radius: 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #475569;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .dark .nav-item {
+            color: #94a3b8;
+        }
+
+        .nav-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .dark .nav-item:hover {
+            background-color: #1e293b;
+            color: #ffffff;
+        }
+
+        .nav-item.active {
+            background-color: #eff6ff;
+            color: #2563eb;
+        }
+
+        .dark .nav-item.active {
+            background-color: rgba(37, 99, 235, 0.15);
+            color: #60a5fa;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.875rem;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            font-size: 0.8125rem;
+            color: #0f172a;
+            transition: all 0.15s ease;
+        }
+
+        .dark .input-field {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        #emailDetailView, #gmailGeneratorPage, #donasiPage, #aboutPage {
             transform: translateX(100%);
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            display: flex !important;
-        }
-        #emailDetailView.active,
-        #gmailGeneratorPage.active,
-        #donasiPage.active,
-        #aboutPage.active {
-            transform: translateX(0);
+            pointer-events: none;
+            visibility: hidden;
         }
 
-        #domainOptions { display: none; }
-        .custom-domain-selector.active #domainOptions { display: block; }
+        #emailDetailView.active, #gmailGeneratorPage.active, #donasiPage.active, #aboutPage.active {
+            transform: translateX(0);
+            pointer-events: auto;
+            visibility: visible;
+        }
+
+        #sidebar {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @media (max-width: 1023px) {
+            #sidebar:not(.active) {
+                transform: translateX(-100%);
+            }
+            #sidebar.active {
+                transform: translateX(0);
+            }
+        }
+
+        .rotating {
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 
-<body class="flex overflow-hidden">
+<body class="flex overflow-hidden text-slate-800 dark:text-slate-100 antialiased font-sans select-none">
 
-    <!-- Dark Mode Init Script -->
-    <script>
-        (function () {
-            const stored = localStorage.getItem('darkMode');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (stored === 'true' || (stored === null && prefersDark)) {
-                document.documentElement.classList.add('dark');
-            }
-        })();
-    </script>
+    <!-- Backdrop for Mobile Sidebar -->
+    <div id="sidebarBackdrop" onclick="toggleSidebar(false)"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 opacity-0 pointer-events-none transition-opacity duration-200 lg:hidden">
+    </div>
 
-    <!-- Mobile Sidebar Overlay -->
-    <div id="sidebarOverlay" onclick="toggleSidebar()" aria-hidden="true"></div>
-
-    <!-- ─── SIDEBAR ──────────────────────────────────────────────────────────── -->
+    <!-- 1. SIDEBAR -->
     <aside id="sidebar"
-        class="fixed inset-y-0 left-0 z-[60] w-72 lg:relative lg:z-auto flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 shadow-2xl lg:shadow-none p-5 gap-5 shrink-0 select-none overflow-y-auto custom-scrollbar">
+        class="fixed inset-y-0 left-0 z-40 w-64 sm:w-72 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between p-4 lg:static lg:translate-x-0 shadow-xl lg:shadow-none shrink-0">
 
-        <!-- Logo -->
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-tr from-primary-700 to-primary-500 rounded-2xl flex items-center justify-center shadow-md shadow-primary-500/25">
-                    <ion-icon name="mail-unread" class="text-white text-2xl" aria-hidden="true"></ion-icon>
-                </div>
-                <div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">REVDMAIL</span>
-                        <span class="px-1.5 py-0.5 text-[10px] font-bold bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 rounded-md">PRO</span>
+        <!-- Top Header & Branding -->
+        <div>
+            <div class="flex items-center justify-between pb-4 mb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-sm">
+                        <ion-icon name="mail-unread" class="text-lg" aria-hidden="true"></ion-icon>
                     </div>
-                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Temporary Email Service</p>
+                    <div>
+                        <span class="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">REVDMAIL</span>
+                        <div class="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Temp Mail Service</div>
+                    </div>
                 </div>
+                <button class="icon-btn lg:hidden" onclick="toggleSidebar(false)" aria-label="Tutup menu">
+                    <ion-icon name="close-outline" class="text-xl" aria-hidden="true"></ion-icon>
+                </button>
             </div>
-            <button class="lg:hidden icon-btn" onclick="toggleSidebar()" aria-label="Tutup menu navigasi">
-                <ion-icon name="close-outline" class="text-2xl" aria-hidden="true"></ion-icon>
-            </button>
-        </div>
 
-        <!-- Quick Primary Actions -->
-        <div class="flex flex-col gap-2">
-            <button class="btn-primary w-full justify-between" id="generateBtn" onclick="generateEmail(true)">
-                <span class="flex items-center gap-2">
-                    <ion-icon name="shuffle-outline" class="text-lg" aria-hidden="true"></ion-icon>
-                    <span>Alamat Acak Baru</span>
-                </span>
-                <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono">NEW</span>
-            </button>
-            <button class="btn-secondary w-full justify-start" id="accessBtn" onclick="openAccessModal()">
-                <ion-icon name="log-in-outline" class="text-lg text-slate-500" aria-hidden="true"></ion-icon>
-                <span>Akses Email Lama</span>
-            </button>
-            <button class="btn-secondary w-full justify-start" onclick="openGmailGeneratorPage(); if(window.setSidebar) setSidebar(false);">
-                <ion-icon name="logo-google" class="text-lg text-red-500" aria-hidden="true"></ion-icon>
-                <span>Generator Gmail</span>
-            </button>
-        </div>
+            <!-- Primary Quick Actions -->
+            <div class="space-y-2 mb-4">
+                <button class="btn-primary w-full justify-between shadow-xs" onclick="generateEmail(true); if(window.setSidebar) setSidebar(false);">
+                    <span class="flex items-center gap-2">
+                        <ion-icon name="sparkles-outline" class="text-base" aria-hidden="true"></ion-icon>
+                        <span>Generate Email</span>
+                    </span>
+                    <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold">BARU</span>
+                </button>
+                <button class="btn-secondary w-full justify-start" id="accessBtn" onclick="openAccessModal(); if(window.setSidebar) setSidebar(false);">
+                    <ion-icon name="key-outline" class="text-base text-slate-500 dark:text-slate-400" aria-hidden="true"></ion-icon>
+                    <span>Akses Email</span>
+                </button>
+                <button class="btn-secondary w-full justify-start" onclick="openCustomModal(); if(window.setSidebar) setSidebar(false);">
+                    <ion-icon name="create-outline" class="text-base text-slate-500 dark:text-slate-400" aria-hidden="true"></ion-icon>
+                    <span>Custom Email</span>
+                </button>
+            </div>
 
-        <!-- Main Navigation -->
-        <nav class="flex-1">
-            <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-2">Menu</p>
-            <ul class="flex flex-col gap-1">
-                <li class="nav-item active" onclick="closeAllPanels(); if(window.setSidebar) setSidebar(false);">
-                    <ion-icon name="mail-outline" class="text-lg shrink-0" aria-hidden="true"></ion-icon>
-                    <span class="flex-1">Kotak Masuk</span>
-                    <span id="sidebarNavCount" class="bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
-                </li>
-                <li class="nav-item" onclick="openDonasiPage(); if(window.setSidebar) setSidebar(false);">
-                    <ion-icon name="heart-outline" class="text-lg shrink-0 text-pink-500" aria-hidden="true"></ion-icon>
-                    <span class="flex-1">Dukungan & Donasi</span>
-                </li>
-                <li class="nav-item" onclick="openAboutPage(); if(window.setSidebar) setSidebar(false);">
-                    <ion-icon name="information-circle-outline" class="text-lg shrink-0 text-sky-500" aria-hidden="true"></ion-icon>
-                    <span class="flex-1">Tentang Layanan</span>
-                </li>
-            </ul>
-        </nav>
-
-        <!-- Current Mailbox Status Card in Sidebar -->
-        <div class="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-            <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-                <span>KOTAK MASUK AKTIF</span>
-                <span class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="sidebarStatusText">Live Sync</span>
-                </span>
-            </div>
-            <div class="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl mb-2.5 shadow-sm">
-                <div class="text-[10px] text-slate-400 font-medium mb-0.5">Alamat Email:</div>
-                <div class="truncate text-xs font-mono font-bold text-slate-800 dark:text-slate-100 select-all" id="sidebarEmailDisplay">
-                    Memuat...
-                </div>
-            </div>
-            <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 mb-2.5">
-                <span>Pesan Diterima:</span>
-                <span id="sidebarMsgCount" class="font-bold text-slate-900 dark:text-white font-mono">0</span>
-            </div>
-            <button onclick="copyEmail()" class="btn-primary w-full py-2 text-xs justify-center">
-                <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                <span>Salin Alamat Email</span>
-            </button>
+            <!-- Navigation Links -->
+            <nav>
+                <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-1.5">Navigasi</p>
+                <ul class="flex flex-col gap-0.5">
+                    <li class="nav-item active" onclick="closeAllPanels(); if(window.setSidebar) setSidebar(false);">
+                        <ion-icon name="mail-outline" class="text-base shrink-0" aria-hidden="true"></ion-icon>
+                        <span class="flex-1">Inbox</span>
+                        <span id="sidebarNavCount" class="bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 text-xs font-bold px-2 py-0.5 rounded-full hidden">0</span>
+                    </li>
+                    <li class="nav-item" onclick="refreshInbox(); if(window.setSidebar) setSidebar(false);">
+                        <ion-icon name="refresh-outline" class="text-base shrink-0" aria-hidden="true"></ion-icon>
+                        <span class="flex-1">Refresh</span>
+                    </li>
+                    <li class="nav-item" onclick="openGmailGeneratorPage(); if(window.setSidebar) setSidebar(false);">
+                        <ion-icon name="logo-google" class="text-base shrink-0 text-red-500" aria-hidden="true"></ion-icon>
+                        <span class="flex-1">Gmail Generator</span>
+                    </li>
+                    <li class="nav-item" onclick="openDonasiPage(); if(window.setSidebar) setSidebar(false);">
+                        <ion-icon name="heart-outline" class="text-base shrink-0 text-pink-500" aria-hidden="true"></ion-icon>
+                        <span class="flex-1">Donasi</span>
+                    </li>
+                    <li class="nav-item" onclick="openAboutPage(); if(window.setSidebar) setSidebar(false);">
+                        <ion-icon name="information-circle-outline" class="text-base shrink-0 text-sky-500" aria-hidden="true"></ion-icon>
+                        <span class="flex-1">Tentang</span>
+                    </li>
+                </ul>
+            </nav>
         </div>
 
         <!-- Footer / Theme Switcher -->
-        <div class="flex flex-col gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div class="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800">
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            <div class="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
                 <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Mode Tampilan</span>
                 <button id="themeToggle"
-                    class="w-8 h-8 flex items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-amber-400 shadow-sm transition-transform active:scale-90"
+                    class="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-600 dark:text-amber-400 shadow-xs transition-transform active:scale-90"
                     aria-label="Ganti mode terang atau gelap">
-                    <ion-icon id="themeIcon" name="sunny-outline" class="text-base" aria-hidden="true"></ion-icon>
+                    <ion-icon id="themeIcon" name="sunny-outline" class="text-sm" aria-hidden="true"></ion-icon>
                 </button>
             </div>
-            <p class="text-center text-[11px] text-slate-400 dark:text-slate-600">
-                &copy; 2026 <a href="https://revd.dev" target="_blank" rel="noopener noreferrer" class="font-semibold text-slate-500 dark:text-slate-400 hover:text-primary-600 transition-colors">REVDSTORE</a>. All rights reserved.
+            <p class="text-center text-[10px] text-slate-400 dark:text-slate-600 mt-2">
+                REVDMAIL v2.0 • Anti-Spam & Multi-Domain
             </p>
         </div>
     </aside>
 
-    <!-- ─── MAIN CONTENT ─────────────────────────────────────────────────────── -->
+    <!-- 2. MAIN APPLICATION WORKSPACE -->
     <main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-
-        <!-- Outer Card Wrapper -->
-        <div id="mainCard" class="flex-1 flex flex-col h-full overflow-hidden lg:m-3 lg:rounded-2xl lg:border lg:border-slate-200/80 dark:lg:border-slate-800/80 bg-white dark:bg-slate-900 shadow-sm">
+        <div id="mainCard" class="flex-1 flex flex-col h-full overflow-hidden lg:m-2.5 lg:rounded-2xl lg:border lg:border-slate-200/80 dark:lg:border-slate-800/80 bg-white dark:bg-slate-900 shadow-xs">
 
             <!-- 1. MOBILE TOP NAVIGATION BAR (Visible only on mobile/tablet < lg) -->
-            <div class="flex items-center justify-between px-4 py-2.5 h-14 border-b border-slate-200/80 dark:border-slate-800/80 lg:hidden bg-white dark:bg-slate-900 shrink-0">
-                <div class="flex items-center gap-2.5">
+            <div class="flex items-center justify-between px-3 sm:px-4 py-2 h-14 border-b border-slate-200/80 dark:border-slate-800/80 lg:hidden bg-white dark:bg-slate-900 shrink-0">
+                <div class="flex items-center gap-2">
                     <button class="icon-btn shrink-0" onclick="toggleSidebar()" aria-label="Buka menu navigasi">
-                        <ion-icon name="menu-outline" class="text-2xl" aria-hidden="true"></ion-icon>
+                        <ion-icon name="menu-outline" class="text-xl" aria-hidden="true"></ion-icon>
                     </button>
                     <div class="flex items-center gap-2">
-                        <div class="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center text-white shadow-sm">
-                            <ion-icon name="mail-unread" class="text-base" aria-hidden="true"></ion-icon>
+                        <div class="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center text-white shadow-xs">
+                            <ion-icon name="mail-unread" class="text-sm" aria-hidden="true"></ion-icon>
                         </div>
-                        <span class="text-base font-bold tracking-tight text-slate-900 dark:text-white">REVDMAIL</span>
+                        <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">REVDMAIL</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="mobileRefreshBtn" onclick="refreshInbox()" class="icon-btn" title="Segarkan Inbox" aria-label="Segarkan kotak masuk">
+                    <button id="mobileRefreshBtn" onclick="refreshInbox()" class="icon-btn" title="Refresh" aria-label="Refresh inbox">
                         <ion-icon name="refresh-outline" class="text-lg" aria-hidden="true"></ion-icon>
                     </button>
-                    <button onclick="generateEmail(true)" class="icon-btn" title="Alamat Acak Baru" aria-label="Buat alamat acak baru">
-                        <ion-icon name="shuffle-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    <button onclick="generateEmail(true)" class="icon-btn" title="Generate Email" aria-label="Generate Email baru">
+                        <ion-icon name="sparkles-outline" class="text-lg text-primary-600 dark:text-primary-400" aria-hidden="true"></ion-icon>
                     </button>
-                    <button id="mobileThemeToggle" class="icon-btn" aria-label="Ganti mode terang atau gelap">
+                    <button id="mobileThemeToggle" class="icon-btn" aria-label="Ganti mode tampilan">
                         <ion-icon id="mobileThemeIcon" name="sunny-outline" class="text-lg" aria-hidden="true"></ion-icon>
                     </button>
                 </div>
             </div>
 
             <!-- 2. MOBILE MAILBOX HERO STATUS CARD (Visible only on mobile/tablet < lg) -->
-            <div class="lg:hidden px-4 py-3 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
+            <div class="lg:hidden px-3 sm:px-4 py-2.5 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
                 <!-- Status Row -->
                 <div class="flex items-center justify-between text-xs mb-2">
                     <div class="flex items-center gap-1.5">
@@ -315,7 +409,7 @@
                         </span>
                         <span id="mobileLiveSyncLabel" class="font-semibold text-emerald-700 dark:text-emerald-400 text-[11px]">Live Sync</span>
                         <span class="text-slate-300 dark:text-slate-700">•</span>
-                        <span id="mobileRefreshTimerLabel" class="text-slate-400 dark:text-slate-500 font-mono text-[11px]">15s</span>
+                        <span id="mobileRefreshTimerLabel" class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">5s</span>
                     </div>
                     <div>
                         <span id="mobileMsgCountBadge" class="bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded-full font-mono text-[11px] font-bold">0 Pesan</span>
@@ -323,34 +417,34 @@
                 </div>
 
                 <!-- Active Email Box -->
-                <div class="flex items-center justify-between gap-2 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl mb-2 shadow-sm">
+                <div class="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl mb-2 shadow-xs">
                     <div class="flex-1 min-w-0 pr-1">
-                        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Alamat Email Aktif</div>
+                        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Email Aktif</div>
                         <div id="mobileActiveEmail" class="font-mono text-xs font-bold text-slate-900 dark:text-white truncate select-all">
                             Memuat alamat...
                         </div>
                     </div>
                     <button onclick="copyEmail()" id="mobileCopyBtn"
-                        class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm shrink-0 active:scale-95 transition-all"
+                        class="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs shrink-0 active:scale-95 transition-all"
                         aria-label="Salin alamat email">
                         <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                        <span id="mobileCopyBtnText">SALIN</span>
+                        <span id="mobileCopyBtnText">COPY</span>
                     </button>
                 </div>
 
                 <!-- Quick Action Buttons -->
                 <div class="grid grid-cols-3 gap-2">
-                    <button onclick="generateEmail(true)" class="btn-secondary py-1.5 px-2 text-xs justify-center">
-                        <ion-icon name="shuffle-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                        <span>Acak</span>
+                    <button onclick="generateEmail(true)" class="btn-secondary py-1.5 px-2 text-xs justify-center font-bold">
+                        <ion-icon name="sparkles-outline" class="text-sm text-primary-600 dark:text-primary-400" aria-hidden="true"></ion-icon>
+                        <span>Generate</span>
                     </button>
-                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-2 text-xs justify-center">
-                        <ion-icon name="create-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                        <span>Kustom</span>
+                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-2 text-xs justify-center font-bold">
+                        <ion-icon name="create-outline" class="text-sm text-slate-500" aria-hidden="true"></ion-icon>
+                        <span>Custom</span>
                     </button>
                     <div class="custom-domain-selector relative">
                         <button onclick="toggleMobileDomainDropdown(event)" id="mobileDomainTrigger" type="button"
-                            class="btn-secondary w-full py-1.5 px-2 text-xs justify-center truncate">
+                            class="btn-secondary w-full py-1.5 px-2 text-xs justify-center truncate font-bold">
                             <ion-icon name="globe-outline" class="text-sm text-primary-500 shrink-0" aria-hidden="true"></ion-icon>
                             <span id="mobileSelectedDomainText" class="truncate">Domain</span>
                         </button>
@@ -373,7 +467,7 @@
                     </span>
                     <div class="flex items-center gap-1 ml-auto shrink-0 pl-2 border-l border-slate-200 dark:border-slate-700 text-slate-400 group-hover:text-primary-600 transition-colors">
                         <ion-icon name="copy-outline" class="text-base" aria-hidden="true"></ion-icon>
-                        <span id="desktopCopyText" class="text-xs font-semibold">SALIN</span>
+                        <span id="desktopCopyText" class="text-xs font-bold">COPY</span>
                     </div>
                 </div>
 
@@ -388,17 +482,19 @@
 
                 <!-- Desktop Controls on Right -->
                 <div class="flex items-center gap-2 ml-auto shrink-0">
-                    <button onclick="generateEmail(true)" class="icon-btn" title="Buat Alamat Acak Baru" aria-label="Buat alamat acak baru">
-                        <ion-icon name="shuffle-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    <button onclick="generateEmail(true)" class="btn-primary py-1.5 px-3 text-xs" title="Generate Email" aria-label="Generate Email baru">
+                        <ion-icon name="sparkles-outline" class="text-sm" aria-hidden="true"></ion-icon>
+                        <span>Generate Email</span>
                     </button>
-                    <button onclick="openCustomModal()" class="icon-btn" title="Buat Username Kustom" aria-label="Buat username kustom">
-                        <ion-icon name="create-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-3 text-xs" title="Custom Email" aria-label="Buat custom email">
+                        <ion-icon name="create-outline" class="text-sm" aria-hidden="true"></ion-icon>
+                        <span>Custom</span>
                     </button>
 
                     <!-- Desktop Domain Selector -->
                     <div class="custom-domain-selector relative" id="customDomainSelector">
                         <button id="domainTrigger" type="button"
-                            class="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-primary-500 transition-all"
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-primary-500 transition-all"
                             aria-haspopup="listbox" aria-expanded="false" aria-label="Pilih domain temporary">
                             <ion-icon name="globe-outline" class="text-primary-500 text-sm" aria-hidden="true"></ion-icon>
                             <span id="selectedDomainText" class="truncate max-w-[110px]">Domain</span>
@@ -413,7 +509,7 @@
             </header>
 
             <!-- 4. TOOLBAR (Search & Timer) -->
-            <div id="inboxToolbar" class="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-850/50">
+            <div id="inboxToolbar" class="shrink-0 flex items-center gap-2.5 px-3 sm:px-5 py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-850/50">
                 <!-- Search Input -->
                 <div class="relative flex-1 max-w-sm">
                     <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
@@ -427,42 +523,42 @@
                 <!-- Refresh & Countdown Timer -->
                 <div class="flex items-center gap-2 ml-auto">
                     <!-- Progress Countdown -->
-                    <div class="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                        <span id="refreshTimerLabel" class="hidden sm:inline">Perbarui: 15s</span>
+                    <div class="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                        <span id="refreshTimerLabel" class="hidden sm:inline font-semibold">5s</span>
                         <div class="w-10 sm:w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div id="refreshProgressBar" class="h-full bg-primary-500 transition-all duration-1000 w-full"></div>
+                            <div id="refreshProgressBar" class="h-full bg-primary-500 transition-all duration-300 w-full"></div>
                         </div>
                     </div>
 
                     <!-- Refresh Button -->
-                    <button id="refreshBtn" onclick="refreshInbox()" class="icon-btn" title="Segarkan Inbox" aria-label="Segarkan kotak masuk">
+                    <button id="refreshBtn" onclick="refreshInbox()" class="icon-btn" title="Refresh" aria-label="Refresh inbox">
                         <ion-icon name="refresh-outline" class="text-base" aria-hidden="true"></ion-icon>
                     </button>
 
                     <!-- Delete Session Button -->
                     <button onclick="deleteCurrentEmail()" class="icon-btn hover:!bg-red-50 dark:hover:!bg-red-950/40 hover:!text-red-600 dark:hover:!text-red-400"
-                        title="Hapus Sesi Email Ini" aria-label="Hapus sesi email saat ini">
+                        title="Hapus Sesi Email" aria-label="Hapus sesi email saat ini">
                         <ion-icon name="trash-outline" class="text-base" aria-hidden="true"></ion-icon>
                     </button>
                 </div>
             </div>
 
             <!-- 5. CENTRAL WORKSPACE (Email List, Details, Subpages) -->
-            <div class="flex-1 overflow-hidden relative">
+            <div class="flex-1 min-h-0 flex flex-col overflow-hidden relative bg-slate-50/40 dark:bg-slate-950/30">
 
                 <!-- 1. Email List View -->
-                <section class="absolute inset-0 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+                <section class="absolute inset-0 flex flex-col overflow-hidden">
 
                     <!-- Shimmer Loading Skeletons -->
-                    <div id="skeletonLoading" class="hidden p-4 space-y-3">
-                        <div class="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800 animate-pulse">
+                    <div id="skeletonLoading" class="hidden p-3 sm:p-4 space-y-2.5">
+                        <div class="flex items-center gap-3 p-3.5 sm:p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse">
                             <div class="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl shrink-0"></div>
                             <div class="flex-1 space-y-2">
                                 <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
                                 <div class="h-3 bg-slate-100 dark:bg-slate-800 rounded w-2/3"></div>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800 animate-pulse">
+                        <div class="flex items-center gap-3 p-3.5 sm:p-4 bg-white dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse">
                             <div class="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl shrink-0"></div>
                             <div class="flex-1 space-y-2">
                                 <div class="h-3.5 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
@@ -471,28 +567,28 @@
                         </div>
                     </div>
 
-                    <!-- Scrollable Email Messages Container (With pb-28 to prevent bottom cutoff on mobile) -->
-                    <div id="emailList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800/80 pb-28 sm:pb-20 overscroll-contain">
+                    <!-- Scrollable Email Messages Container (Padded card container with pb-28) -->
+                    <div id="emailList" class="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-5 space-y-2.5 pb-28 sm:pb-20 overscroll-contain">
                         <!-- Injected by script.js -->
                     </div>
 
                     <!-- Empty State Container -->
                     <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none opacity-0 transition-opacity duration-300">
-                        <div class="w-20 h-20 bg-primary-50 dark:bg-slate-800/80 border border-primary-100 dark:border-slate-700/60 rounded-3xl flex items-center justify-center mb-4 shadow-sm">
-                            <ion-icon name="mail-open-outline" class="text-4xl text-primary-500 dark:text-primary-400" aria-hidden="true"></ion-icon>
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 bg-primary-50 dark:bg-slate-800/80 border border-primary-100 dark:border-slate-700/60 rounded-3xl flex items-center justify-center mb-4 shadow-xs">
+                            <ion-icon name="mail-open-outline" class="text-3xl sm:text-4xl text-primary-500 dark:text-primary-400" aria-hidden="true"></ion-icon>
                         </div>
-                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 mb-1">Kotak Masuk Kosong</h3>
+                        <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 mb-1">Inbox Kosong</h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-5">
                             Menunggu pesan masuk. Email yang dikirim ke alamat temporermu akan otomatis tampil di sini secara real-time.
                         </p>
                         <div class="pointer-events-auto flex items-center gap-2">
                             <button onclick="copyEmail()" class="btn-secondary text-xs py-2 px-3.5">
                                 <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                <span>Salin Alamat Email</span>
+                                <span>Copy Email</span>
                             </button>
                             <button onclick="refreshInbox()" class="btn-primary text-xs py-2 px-3.5">
                                 <ion-icon name="refresh-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                <span>Periksa Sekarang</span>
+                                <span>Refresh</span>
                             </button>
                         </div>
                     </div>
@@ -500,16 +596,16 @@
 
                 <!-- 2. Email Detail View -->
                 <article id="emailDetailView" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-                    <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80 backdrop-blur-sm">
-                        <div class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80 backdrop-blur-xs">
+                        <div class="flex items-center justify-between gap-3 px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
                             <button onclick="closeDetail()"
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-all active:scale-95"
-                                aria-label="Kembali ke daftar kotak masuk">
+                                aria-label="Kembali ke inbox">
                                 <ion-icon name="arrow-back-outline" class="text-base" aria-hidden="true"></ion-icon>
                                 <span>Kembali</span>
                             </button>
                             <div class="flex items-center gap-1">
-                                <button onclick="copyDetailBody()" class="icon-btn" title="Salin Teks Email" aria-label="Salin teks pesan email">
+                                <button onclick="copyDetailBody()" class="icon-btn" title="Copy Teks Pesan" aria-label="Copy teks pesan email">
                                     <ion-icon name="clipboard-outline" class="text-base" aria-hidden="true"></ion-icon>
                                 </button>
                                 <button onclick="printEmail()" class="icon-btn" title="Cetak Email" aria-label="Cetak email">
@@ -518,236 +614,185 @@
                             </div>
                         </div>
 
-                        <!-- Subject & Date -->
-                        <div class="px-5 pt-3 pb-2">
-                            <h1 id="detailSubject" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug">Subjek Pesan</h1>
-                            <time id="detailDate" class="text-xs text-slate-400 dark:text-slate-500 mt-0.5 block"></time>
-                        </div>
-
-                        <!-- Sender & Recipient Meta -->
-                        <div class="flex items-center gap-3 px-5 pb-3">
-                            <div id="senderAvatar" class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
-                                A
+                        <!-- Email Meta -->
+                        <div class="px-4 py-3">
+                            <div class="flex items-start justify-between gap-3 mb-2">
+                                <h2 id="detailSubject" class="text-sm sm:text-base font-bold text-slate-900 dark:text-white break-words flex-1">
+                                    Subjek Email
+                                </h2>
+                                <time id="detailDate" class="text-[11px] font-medium text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap mt-0.5">
+                                    Waktu
+                                </time>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-baseline gap-2 flex-wrap">
-                                    <span id="detailSenderName" class="font-semibold text-slate-900 dark:text-white text-sm">Pengirim</span>
-                                    <span id="detailSenderEmail" class="text-xs text-slate-500 dark:text-slate-400 truncate"></span>
-                                </div>
-                                <div class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
-                                    <span>Penerima:</span>
-                                    <span id="detailRecipient" class="font-mono font-medium text-slate-600 dark:text-slate-300 truncate"></span>
-                                </div>
+                            <div class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                <span class="font-medium text-slate-400">Dari:</span>
+                                <span id="detailFrom" class="font-semibold text-slate-800 dark:text-slate-100 break-all">Pengirim</span>
                             </div>
                         </div>
 
-                        <!-- Detected OTP Prominent Highlight Box -->
-                        <div id="detailOtpBanner" class="hidden mx-5 mb-3 p-3.5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl flex items-center justify-between gap-3">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center shrink-0">
-                                    <ion-icon name="key-outline" class="text-lg" aria-hidden="true"></ion-icon>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="text-[11px] font-bold tracking-wider text-amber-800 dark:text-amber-300 uppercase">Kode Verifikasi Terdeteksi</div>
-                                    <div id="detailOtpCode" class="font-mono text-xl font-extrabold tracking-widest text-slate-900 dark:text-white">------</div>
+                        <!-- Quick OTP Banner if present -->
+                        <div id="detailOtpBanner" class="hidden mx-4 mb-3 p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="text-lg">🔐</span>
+                                <div>
+                                    <div class="text-[10px] font-extrabold text-amber-800 dark:text-amber-400 uppercase tracking-wider">KODE VERIFIKASI / OTP</div>
+                                    <div id="detailOtpCode" class="font-mono text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-widest">
+                                        ------
+                                    </div>
                                 </div>
                             </div>
-                            <button id="detailOtpCopyBtn" onclick="copyDetectedOtp()"
-                                class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 shrink-0">
-                                SALIN OTP
+                            <button onclick="copyDetailOtp()" class="btn-primary py-1.5 px-3 text-xs shrink-0 !bg-amber-600 hover:!bg-amber-700">
+                                <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
+                                <span>SALIN OTP</span>
                             </button>
                         </div>
                     </header>
 
-                    <!-- Detail Body (With pb-28 to prevent bottom cutoff on mobile) -->
-                    <div id="detailBody" class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-slate-50/30 dark:bg-slate-950/30 pb-28 sm:pb-20 overscroll-contain">
-                        <!-- Injected by script.js -->
+                    <!-- Email Body Container (Sandboxed iframe) -->
+                    <div id="detailBody" class="flex-1 overflow-y-auto p-3 sm:p-5 custom-scrollbar bg-slate-50/30 dark:bg-slate-950/30 pb-28 sm:pb-20 overscroll-contain">
+                        <!-- Content or iframe injected by script.js -->
                     </div>
                 </article>
 
-                <!-- 3. Gmail Generator Page -->
-                <section id="gmailGeneratorPage" class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-                    <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
-                        <div class="flex items-center gap-3 px-4 py-3.5">
-                            <button onclick="closeGmailGeneratorPage()" class="icon-btn" aria-label="Kembali ke halaman sebelumnya">
-                                <ion-icon name="arrow-back-outline" class="text-xl" aria-hidden="true"></ion-icon>
+                <!-- 3. Gmail Variant Generator Page -->
+                <section id="gmailGeneratorPage" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                    <header class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
+                        <div class="flex items-center gap-2">
+                            <button onclick="closeGmailGeneratorPage()" class="icon-btn" aria-label="Tutup Gmail Generator">
+                                <ion-icon name="arrow-back-outline" class="text-lg" aria-hidden="true"></ion-icon>
                             </button>
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
-                                <div class="w-8 h-8 bg-red-50 dark:bg-red-950/40 rounded-xl flex items-center justify-center shrink-0">
-                                    <ion-icon name="logo-google" class="text-red-500 text-base" aria-hidden="true"></ion-icon>
-                                </div>
-                                <div>
-                                    <h1 class="text-sm font-bold text-slate-900 dark:text-white">Gmail Dot Trick Generator</h1>
-                                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Kombinasi titik tanpa batas, satu kotak masuk</p>
-                                </div>
-                            </div>
+                            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <ion-icon name="logo-google" class="text-red-500 text-lg"></ion-icon>
+                                <span>Gmail Dot Trick Generator</span>
+                            </h2>
                         </div>
                     </header>
 
-                    <div class="shrink-0 px-4 py-4 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900">
-                        <p class="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
-                            Gmail mengabaikan tanda titik (<code class="text-primary-600 font-mono font-bold">.</code>) pada username. Masukkan alamat Gmail kamu untuk menghasilkan ratusan variasi unik. Semua email verifikasi yang dikirim ke alamat variasi ini tetap masuk ke inbox Gmail aslimu.
-                        </p>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <div class="relative flex-1">
-                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                                    <ion-icon name="mail-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                </div>
-                                <input type="email" id="gmailGenInput" placeholder="usernamekamu@gmail.com"
-                                    class="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all font-mono"
-                                    autocomplete="off" aria-label="Alamat Gmail utama">
-                            </div>
-                            <button onclick="generateGmailDotVariants()" id="gmailGenBtn" class="btn-primary shrink-0 py-2.5">
-                                <ion-icon name="sparkles-outline" class="text-base" aria-hidden="true"></ion-icon>
-                                <span>Hasilkan Variasi</span>
-                            </button>
-                        </div>
-
-                        <div id="gmailGenStats" class="hidden mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <span id="gmailGenCount" class="font-medium"></span>
-                            <button onclick="copyAllGmailVariants()" class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 font-bold hover:underline">
-                                <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                <span>Salin Semua Alamat</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="gmailGenList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800/80 p-2 pb-28 sm:pb-20 overscroll-contain">
-                        <!-- Injected by script.js -->
-                    </div>
-                </section>
-
-                <!-- 4. Donasi & Dukungan Page -->
-                <section id="donasiPage" class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-                    <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
-                        <div class="flex items-center gap-3 px-4 py-3.5">
-                            <button onclick="closeDonasiPage()" class="icon-btn" aria-label="Kembali ke halaman sebelumnya">
-                                <ion-icon name="arrow-back-outline" class="text-xl" aria-hidden="true"></ion-icon>
-                            </button>
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
-                                <div class="w-8 h-8 bg-pink-50 dark:bg-pink-950/40 rounded-xl flex items-center justify-center shrink-0">
-                                    <ion-icon name="heart" class="text-pink-500 text-base" aria-hidden="true"></ion-icon>
-                                </div>
-                                <div>
-                                    <h1 class="text-sm font-bold text-slate-900 dark:text-white">Dukungan & Donasi</h1>
-                                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Bantu operasional server REVDMAIL</p>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-
-                    <div class="flex-1 overflow-y-auto custom-scrollbar p-6 pb-28 sm:pb-20 overscroll-contain">
-                        <div class="max-w-md mx-auto flex flex-col gap-6">
-                            <div class="text-center">
-                                <div class="w-14 h-14 bg-pink-50 dark:bg-pink-950/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                    <ion-icon name="heart" class="text-pink-500 text-3xl" aria-hidden="true"></ion-icon>
-                                </div>
-                                <h2 class="text-lg font-bold text-slate-900 dark:text-white">Dukung Server Tetap Aktif</h2>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                    Layanan REVDMAIL 100% gratis tanpa iklan yang mengganggu. Donasi sukarela membantuku membiayai sewa server VPS dan pembaruan domain.
-                                </p>
-                            </div>
-
-                            <!-- QR Code Section -->
-                            <div class="flex flex-col items-center gap-2.5 p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SCAN QRIS ALL PAYMENT</span>
-                                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-100">
-                                    <img src="/images/qr-donasi.png" alt="QR Code Donasi REVDMAIL" class="w-48 h-48 object-contain">
-                                </div>
-                                <p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">DANA · GoPay · ShopeePay · SeaBank · BCA</p>
-                            </div>
-
-                            <!-- Manual Transfer Options -->
-                            <div class="flex flex-col gap-2.5">
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Nomor Rekening Manual</span>
-
-                                <div class="p-3 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                                    <div>
-                                        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">DANA / GOPAY / OVO</div>
-                                        <div id="rekDana" class="font-mono text-sm font-bold text-slate-900 dark:text-white">088214672165</div>
-                                    </div>
-                                    <button onclick="copyRek('rekDana', this)" class="btn-secondary py-1.5 px-3 text-xs" aria-label="Salin nomor DANA">
-                                        <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                        <span>Salin</span>
-                                    </button>
-                                </div>
-
-                                <div class="p-3 bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                                    <div>
-                                        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">SEABANK</div>
-                                        <div id="rekSea" class="font-mono text-sm font-bold text-slate-900 dark:text-white">901484142620</div>
-                                    </div>
-                                    <button onclick="copyRek('rekSea', this)" class="btn-secondary py-1.5 px-3 text-xs" aria-label="Salin nomor SeaBank">
-                                        <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                        <span>Salin</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 5. Tentang Layanan Page -->
-                <section id="aboutPage" class="absolute inset-0 z-20 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
-                    <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
-                        <div class="flex items-center gap-3 px-4 py-3.5">
-                            <button onclick="closeAboutPage()" class="icon-btn" aria-label="Kembali ke halaman sebelumnya">
-                                <ion-icon name="arrow-back-outline" class="text-xl" aria-hidden="true"></ion-icon>
-                            </button>
-                            <div class="flex items-center gap-2 flex-1 min-w-0">
-                                <div class="w-8 h-8 bg-primary-50 dark:bg-primary-950/40 rounded-xl flex items-center justify-center shrink-0">
-                                    <ion-icon name="information-circle" class="text-primary-500 text-base" aria-hidden="true"></ion-icon>
-                                </div>
-                                <div>
-                                    <h1 class="text-sm font-bold text-slate-900 dark:text-white">Tentang REVDMAIL</h1>
-                                    <p class="text-[11px] text-slate-400 dark:text-slate-500">Arsitektur & Jaminan Privasi</p>
-                                </div>
-                            </div>
-                        </div>
-                    </header>
-
-                    <div class="flex-1 overflow-y-auto custom-scrollbar p-6 pb-28 sm:pb-20 overscroll-contain">
-                        <div class="max-w-md mx-auto flex flex-col gap-5">
-                            <div class="text-center">
-                                <div class="w-14 h-14 bg-primary-50 dark:bg-primary-950/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                                    <ion-icon name="mail-unread" class="text-primary-500 text-3xl" aria-hidden="true"></ion-icon>
-                                </div>
-                                <h2 class="text-lg font-bold text-slate-900 dark:text-white">REVDMAIL Temporary Mail</h2>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                    Layanan kotak masuk sementara tanpa log aktivitas pengguna. Dirancang untuk melindungi email pribadi dari spam dan kebocoran data.
-                                </p>
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-28 sm:pb-20 overscroll-contain">
+                        <div class="max-w-2xl mx-auto space-y-5">
+                            <div class="p-4 bg-primary-50/60 dark:bg-primary-950/30 border border-primary-200/60 dark:border-primary-900/40 rounded-2xl text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                                💡 <strong>Fitur Dot Trick:</strong> Gmail mengabaikan tanda titik pada username. Misalnya, email yang dikirim ke <code class="font-mono font-bold text-primary-600">b.o.b@gmail.com</code> akan masuk ke inbox <code class="font-mono font-bold text-primary-600">bob@gmail.com</code>.
                             </div>
 
                             <div class="space-y-3">
-                                <div class="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-1">
-                                        <ion-icon name="shield-checkmark-outline" class="text-primary-500 text-base" aria-hidden="true"></ion-icon>
-                                        Privasi & Isolasi Multi-Tenant
-                                    </h3>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Setiap email difilter ketat berdasarkan alamat tujuan resmi. User lain tidak dapat membaca email kamu melalui tebakan nama atau ID.
-                                    </p>
+                                <label for="gmailGenInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    Alamat Gmail Utama:
+                                </label>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <input type="email" id="gmailGenInput" placeholder="contoh: user@gmail.com"
+                                        class="input-field flex-1 font-mono text-xs">
+                                    <button onclick="generateGmailDotVariants()" class="btn-primary justify-center sm:shrink-0 py-2.5">
+                                        <ion-icon name="sparkles-outline" class="text-base"></ion-icon>
+                                        <span>Buat Variasi</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Results Section -->
+                            <div id="gmailGenStats" class="hidden flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                                    Ditemukan <strong id="gmailGenCount" class="text-primary-600 dark:text-primary-400">0</strong> variasi alamat
+                                </span>
+                                <button onclick="copyAllGmailVariants()" class="btn-secondary text-xs py-1 px-3">
+                                    <ion-icon name="copy-outline" class="text-sm"></ion-icon>
+                                    <span>Salin Semua</span>
+                                </button>
+                            </div>
+
+                            <div id="gmailGenList" class="space-y-2 font-mono text-xs max-h-96 overflow-y-auto custom-scrollbar">
+                                <!-- Injected by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. Donasi Page -->
+                <section id="donasiPage" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                    <header class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
+                        <div class="flex items-center gap-2">
+                            <button onclick="closeDonasiPage()" class="icon-btn" aria-label="Tutup donasi">
+                                <ion-icon name="arrow-back-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                            </button>
+                            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <ion-icon name="heart" class="text-pink-500 text-lg"></ion-icon>
+                                <span>Dukungan & Donasi</span>
+                            </h2>
+                        </div>
+                    </header>
+
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-28 sm:pb-20 overscroll-contain">
+                        <div class="max-w-xl mx-auto space-y-5 text-center">
+                            <div class="w-14 h-14 bg-pink-50 dark:bg-pink-950/50 rounded-2xl flex items-center justify-center text-pink-500 mx-auto">
+                                <ion-icon name="gift-outline" class="text-3xl"></ion-icon>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">Dukung Pemeliharaan Server REVDMAIL</h3>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                                    Layanan ini disediakan gratis tanpa iklan yang mengganggu. Bantuanmu membantu sewa domain dan server tetap online.
+                                </p>
+                            </div>
+
+                            <!-- Rekening / E-Wallet Cards -->
+                            <div class="space-y-3 text-left">
+                                <div class="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+                                    <div>
+                                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Bank Mandiri</div>
+                                        <div class="font-mono text-sm font-bold text-slate-900 dark:text-white" id="rekMandiri">1410026362544</div>
+                                        <div class="text-xs text-slate-500 dark:text-slate-400">a.n. REVDMAIL</div>
+                                    </div>
+                                    <button onclick="copyRek('rekMandiri', this)" class="btn-secondary py-1.5 px-3 text-xs">
+                                        <ion-icon name="copy-outline" class="text-sm"></ion-icon>
+                                        <span>Salin</span>
+                                    </button>
                                 </div>
 
-                                <div class="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-1">
-                                        <ion-icon name="flash-outline" class="text-amber-500 text-base" aria-hidden="true"></ion-icon>
-                                        Pendeteksi Kode OTP Otomatis
-                                    </h3>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Pesan verifikasi seperti Canva, Telegram, Facebook, dan Google langsung di-parsing sehingga kode angka dapat disalin dalam 1 klik.
-                                    </p>
+                                <div class="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+                                    <div>
+                                        <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">DANA / GoPay / OVO</div>
+                                        <div class="font-mono text-sm font-bold text-slate-900 dark:text-white" id="rekDana">087817027581</div>
+                                        <div class="text-xs text-slate-500 dark:text-slate-400">a.n. REVDMAIL</div>
+                                    </div>
+                                    <button onclick="copyRek('rekDana', this)" class="btn-secondary py-1.5 px-3 text-xs">
+                                        <ion-icon name="copy-outline" class="text-sm"></ion-icon>
+                                        <span>Salin</span>
+                                    </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                                <div class="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800">
-                                    <h3 class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 mb-1">
-                                        <ion-icon name="leaf-outline" class="text-emerald-500 text-base" aria-hidden="true"></ion-icon>
-                                        Tanpa Polling di Latar Belakang
-                                    </h3>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Aplikasi otomatis menjeda request saat tab diminimalkan untuk menghemat daya baterai perangkatmu dan bandwidth internet.
-                                    </p>
-                                </div>
+                <!-- 5. About Page -->
+                <section id="aboutPage" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                    <header class="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-850/80">
+                        <div class="flex items-center gap-2">
+                            <button onclick="closeAboutPage()" class="icon-btn" aria-label="Tutup tentang">
+                                <ion-icon name="arrow-back-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                            </button>
+                            <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <ion-icon name="information-circle" class="text-sky-500 text-lg"></ion-icon>
+                                <span>Tentang REVDMAIL</span>
+                            </h2>
+                        </div>
+                    </header>
+
+                    <div class="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-28 sm:pb-20 overscroll-contain">
+                        <div class="max-w-xl mx-auto space-y-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                            <div class="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+                                <h4 class="font-bold text-sm text-slate-900 dark:text-white">Apa itu REVDMAIL?</h4>
+                                <p>
+                                    REVDMAIL adalah platform disposable temporary email service yang dirancang untuk melindungi kotak masuk utamamu dari spam, newsletter tak diinginkan, dan kebocoran data saat mendaftar akun di situs web asing.
+                                </p>
+                            </div>
+
+                            <div class="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2">
+                                <h4 class="font-bold text-sm text-slate-900 dark:text-white">Fitur Utama</h4>
+                                <ul class="list-disc list-inside space-y-1 pl-1 text-slate-600 dark:text-slate-300">
+                                    <li><strong>Instant Generation:</strong> Buat alamat email acak dalam 1-klik tanpa signup.</li>
+                                    <li><strong>Auto OTP Extraction:</strong> Deteksi instan kode verifikasi 4–8 digit untuk kemudahan 1-tap copy.</li>
+                                    <li><strong>Multi-Domain Catch-all:</strong> Akses ke berbagai domain pilihan.</li>
+                                    <li><strong>Sandbox Security:</strong> Isolasi rendering HTML email mencegah eksekusi skrip berbahaya.</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
@@ -756,155 +801,72 @@
         </div>
     </main>
 
-    <!-- ─── MODAL: AKSES EMAIL LAMA ──────────────────────────────────────────── -->
-    <div id="accessModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="accessModalTitle">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-slide-up">
-            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <h2 id="accessModalTitle" class="text-sm font-bold text-slate-900 dark:text-white">Akses Kotak Masuk Tertentu</h2>
-                <button onclick="closeAccessModal()" class="icon-btn" aria-label="Tutup jendela">
-                    <ion-icon name="close-outline" class="text-xl" aria-hidden="true"></ion-icon>
+    <!-- ─── MODALS ───────────────────────────────────────────────────────────── -->
+
+    <!-- Access Modal -->
+    <div id="accessModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4 transform scale-95 transition-transform duration-200">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <ion-icon name="key-outline" class="text-primary-600 text-lg"></ion-icon>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Akses Email</h3>
+                </div>
+                <button onclick="closeAccessModal()" class="icon-btn" aria-label="Tutup modal">
+                    <ion-icon name="close-outline" class="text-xl"></ion-icon>
                 </button>
             </div>
-            <div class="p-5 space-y-4">
-                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Pernah membuat alamat temporer sebelumnya? Masukkan alamat lengkap untuk memeriksa kotak masuknya kembali.
-                </p>
-                <div>
-                    <label for="accessEmailInput" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Alamat Email Lengkap</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                            <ion-icon name="mail-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                        </div>
-                        <input type="email" id="accessEmailInput" placeholder="contoh123@revd.me"
-                            class="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all font-mono"
-                            autocomplete="off">
-                    </div>
-                </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Masukkan alamat email yang pernah kamu buat sebelumnya untuk memeriksa kotak masuknya kembali.
+            </p>
+            <div>
+                <label for="accessEmailInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Alamat Email Lengkap:</label>
+                <input type="email" id="accessEmailInput" placeholder="user@revd.me" class="input-field font-mono text-xs">
             </div>
-            <div class="p-4 bg-slate-50/70 dark:bg-slate-850/70 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                <button onclick="closeAccessModal()" class="btn-secondary text-xs py-2 px-3.5">Batal</button>
-                <button onclick="accessExistingEmail()" class="btn-primary text-xs py-2 px-3.5">Akses Sekarang</button>
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button onclick="closeAccessModal()" class="btn-secondary py-2 px-3.5 text-xs">Batal</button>
+                <button onclick="accessExistingEmail()" class="btn-primary py-2 px-4 text-xs">Akses Email</button>
             </div>
         </div>
     </div>
 
-    <!-- ─── MODAL: BUAT ALAMAT KUSTOM ─────────────────────────────────────────── -->
-    <div id="customModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customModalTitle">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-slide-up">
-            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <h2 id="customModalTitle" class="text-sm font-bold text-slate-900 dark:text-white">Buat Username Kustom</h2>
-                <button onclick="closeCustomModal()" class="icon-btn" aria-label="Tutup jendela">
-                    <ion-icon name="close-outline" class="text-xl" aria-hidden="true"></ion-icon>
+    <!-- Custom Email Modal -->
+    <div id="customModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4 transform scale-95 transition-transform duration-200">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <ion-icon name="create-outline" class="text-primary-600 text-lg"></ion-icon>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Custom Email</h3>
+                </div>
+                <button onclick="closeCustomModal()" class="icon-btn" aria-label="Tutup modal">
+                    <ion-icon name="close-outline" class="text-xl"></ion-icon>
                 </button>
             </div>
-            <div class="p-5 space-y-4">
-                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Tentukan username pilihanmu sendiri agar mudah diingat saat mendaftar.
-                </p>
-                <div>
-                    <label for="customUsernameInput" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Username Pilihan</label>
-                    <div class="flex items-center">
-                        <input type="text" id="customUsernameInput" placeholder="nama-kamu" maxlength="30"
-                            class="flex-1 pl-3 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 rounded-l-xl text-xs dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all font-mono"
-                            autocomplete="off">
-                        <span id="customModalDomainDisplay" class="px-3 py-2.5 bg-slate-100 dark:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-r-xl text-xs font-mono font-semibold text-primary-600 dark:text-primary-400">
-                            @revd.me
-                        </span>
-                    </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Pilih username sesuai keinginanmu untuk membuat alamat email temporer kustom.
+            </p>
+            <div>
+                <label for="customUsernameInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Username:</label>
+                <div class="flex items-center gap-1">
+                    <input type="text" id="customUsernameInput" placeholder="nama-kamu" class="input-field font-mono text-xs flex-1">
+                    <span id="customModalDomainBadge" class="text-xs font-mono font-bold text-slate-500 dark:text-slate-400 px-2 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl">@revd.me</span>
                 </div>
             </div>
-            <div class="p-4 bg-slate-50/70 dark:bg-slate-850/70 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                <button onclick="closeCustomModal()" class="btn-secondary text-xs py-2 px-3.5">Batal</button>
-                <button onclick="generateCustomEmail()" class="btn-primary text-xs py-2 px-3.5">Buat Alamat</button>
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button onclick="closeCustomModal()" class="btn-secondary py-2 px-3.5 text-xs">Batal</button>
+                <button onclick="generateCustomEmail()" class="btn-primary py-2 px-4 text-xs">Buat Email</button>
             </div>
         </div>
     </div>
 
-    <!-- ─── TOAST NOTIFICATION STACK ─────────────────────────────────────────── -->
+    <!-- ─── TOAST NOTIFICATION ────────────────────────────────────────────────── -->
     <div id="toast"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[200] max-w-sm px-4 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl text-xs font-medium opacity-0 translate-y-4 transition-all duration-200 pointer-events-none flex items-center gap-2.5 border border-slate-700 dark:border-slate-200">
-        <ion-icon id="toastIcon" name="information-circle" class="text-base text-primary-400 dark:text-primary-600 shrink-0" aria-hidden="true"></ion-icon>
-        <span id="toastMessage" class="truncate">Pemberitahuan</span>
+        class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl shadow-2xl text-xs font-medium opacity-0 pointer-events-none transition-all duration-200 transform translate-y-2">
+        <ion-icon id="toastIcon" name="checkmark-circle" class="text-emerald-400 dark:text-emerald-600 text-lg shrink-0"></ion-icon>
+        <span id="toastMessage">Pemberitahuan</span>
     </div>
 
-    <!-- ─── CORE LOGIC SCRIPT ────────────────────────────────────────────────── -->
+    <!-- App Script -->
     <script src="js/script.js"></script>
-
-    <script>
-        // Sync theme across both desktop and mobile buttons
-        const themeToggle = document.getElementById('themeToggle');
-        const themeIcon   = document.getElementById('themeIcon');
-        const mobileThemeToggle = document.getElementById('mobileThemeToggle');
-        const mobileThemeIcon   = document.getElementById('mobileThemeIcon');
-
-        function syncThemeIcons() {
-            const isDark = document.documentElement.classList.contains('dark');
-            const iconName = isDark ? 'moon-outline' : 'sunny-outline';
-            if (themeIcon) themeIcon.setAttribute('name', iconName);
-            if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', iconName);
-        }
-        syncThemeIcons();
-
-        function handleThemeSwitch() {
-            document.documentElement.classList.toggle('dark');
-            const isDark = document.documentElement.classList.contains('dark');
-            localStorage.setItem('darkMode', isDark);
-            syncThemeIcons();
-        }
-
-        if (themeToggle) themeToggle.addEventListener('click', handleThemeSwitch);
-        if (mobileThemeToggle) mobileThemeToggle.addEventListener('click', handleThemeSwitch);
-
-        // Single Source of Truth for Sidebar Navigation
-        function setSidebar(open) {
-            const sb = document.getElementById('sidebar');
-            const ov = document.getElementById('sidebarOverlay');
-            if (!sb) return;
-            sb.classList.toggle('active', open);
-            if (ov) ov.classList.toggle('active', open);
-        }
-        window.toggleSidebar = function () {
-            const sb = document.getElementById('sidebar');
-            setSidebar(sb ? !sb.classList.contains('active') : false);
-        };
-        window.setSidebar = setSidebar;
-
-        window.addEventListener('resize', () => {
-            if (window.innerWidth >= 1024) setSidebar(false);
-        });
-
-        // Close subpages helper
-        window.closeAllPanels = function () {
-            if (typeof closeDetail === 'function') closeDetail();
-            if (typeof closeGmailGeneratorPage === 'function') closeGmailGeneratorPage();
-            if (typeof closeDonasiPage === 'function') closeDonasiPage();
-            if (typeof closeAboutPage === 'function') closeAboutPage();
-        };
-
-        // Mobile domain dropdown toggle helper
-        window.toggleMobileDomainDropdown = function (e) {
-            if (e) e.stopPropagation();
-            const opts = document.getElementById('mobileDomainOptions');
-            if (opts) opts.classList.toggle('hidden');
-        };
-
-        document.addEventListener('click', (e) => {
-            const opts = document.getElementById('mobileDomainOptions');
-            const trigger = document.getElementById('mobileDomainTrigger');
-            if (opts && !opts.contains(e.target) && trigger && !trigger.contains(e.target)) {
-                opts.classList.add('hidden');
-            }
-        });
-
-        // Modal Escape Key Support
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                if (typeof closeAccessModal === 'function') closeAccessModal();
-                if (typeof closeCustomModal === 'function') closeCustomModal();
-                if (typeof closeDetail === 'function') closeDetail();
-                if (typeof setSidebar === 'function') setSidebar(false);
-            }
-        });
-    </script>
 </body>
+
 </html>

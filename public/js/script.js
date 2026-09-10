@@ -1,76 +1,55 @@
 const API_BASE = '/api';
 
 let currentEmail = null;
-let pollingInterval = null;
 let allMessages = [];
 let availableDomains = [];
 let selectedDomain = '';
 let activeAbortController = null;
 let consecutiveEmptyPolls = 0;
 const EMPTY_POLLS_BEFORE_CLEAR = 3;
-let currentDetectedOtp = null;
+
+// Polling Engine Settings (Fast 5s Synchronized Loop)
+const POLL_INTERVAL_SECONDS = 5;
+let countdownRemaining = POLL_INTERVAL_SECONDS;
+let countdownTimerId = null;
+let isPollingActive = false;
+
 let currentDetailText = '';
 
-// Countdown Timer State
-let countdownSeconds = 15;
-let countdownInterval = null;
-
-// DOM Elements
+// DOM Elements Cache
+const emailListContainer = document.getElementById('emailList');
+const skeletonLoading = document.getElementById('skeletonLoading');
+const emptyState = document.getElementById('emptyState');
 const currentEmailText = document.getElementById('currentEmailText');
 const mobileActiveEmail = document.getElementById('mobileActiveEmail');
-const sidebarEmailDisplay = document.getElementById('sidebarEmailDisplay');
-const sidebarMsgCount = document.getElementById('sidebarMsgCount');
 const sidebarNavCount = document.getElementById('sidebarNavCount');
-const sidebarStatusText = document.getElementById('sidebarStatusText');
 const mobileMsgCountBadge = document.getElementById('mobileMsgCountBadge');
-const emailListContainer = document.getElementById('emailList');
-const emptyState = document.getElementById('emptyState');
-const skeletonLoading = document.getElementById('skeletonLoading');
-const customDomainSelector = document.getElementById('customDomainSelector');
+const searchInput = document.getElementById('searchInput');
 const domainTrigger = document.getElementById('domainTrigger');
 const domainOptions = document.getElementById('domainOptions');
 const selectedDomainText = document.getElementById('selectedDomainText');
+const customDomainSelector = document.getElementById('customDomainSelector');
 const mobileDomainOptions = document.getElementById('mobileDomainOptions');
 const mobileSelectedDomainText = document.getElementById('mobileSelectedDomainText');
+const refreshBtn = document.getElementById('refreshBtn');
+const mobileRefreshBtn = document.getElementById('mobileRefreshBtn');
 const detailView = document.getElementById('emailDetailView');
 const detailSubject = document.getElementById('detailSubject');
-const detailSenderName = document.getElementById('detailSenderName');
-const detailSenderEmail = document.getElementById('detailSenderEmail');
-const senderAvatar = document.getElementById('senderAvatar');
+const detailFrom = document.getElementById('detailFrom');
 const detailDate = document.getElementById('detailDate');
-const detailRecipient = document.getElementById('detailRecipient');
 const detailBody = document.getElementById('detailBody');
 const detailOtpBanner = document.getElementById('detailOtpBanner');
 const detailOtpCode = document.getElementById('detailOtpCode');
-const searchInput = document.getElementById('searchInput');
 const liveSyncStatus = document.getElementById('liveSyncStatus');
 const liveSyncText = document.getElementById('liveSyncText');
 const mobileLiveSyncLabel = document.getElementById('mobileLiveSyncLabel');
 const mobileSyncPing = document.getElementById('mobileSyncPing');
 const mobileSyncDot = document.getElementById('mobileSyncDot');
+const toast = document.getElementById('toast');
+const toastMessage = document.getElementById('toastMessage');
+const toastIcon = document.getElementById('toastIcon');
 
-// ─── OTP / VERIFICATION CODE PARSER ───────────────────────────────────────────
-
-function extractOTP(subject, bodyText) {
-    const text = `${subject || ''} ${bodyText || ''}`.trim();
-    if (!text) return null;
-
-    // Pattern 1: Explicit labels (code/kode/otp/pin/token/verifikasi/verification)
-    const labelMatch = text.match(/(?:code|kode|otp|pin|token|verifikasi|verification)[\s:=#\-]*([0-9]{4,8}|[A-Z0-9]{5,8})\b/i);
-    if (labelMatch && labelMatch[1]) {
-        return labelMatch[1];
-    }
-
-    // Pattern 2: Standalone 4-8 digits in known transactional/security contexts
-    if (/(?:canva|google|facebook|instagram|telegram|whatsapp|discord|github|twitter|x\.com|apple|microsoft|login|verify|masuk|daftar|konfirmasi)/i.test(text)) {
-        const numMatch = text.match(/\b([0-9]{4,8})\b/);
-        if (numMatch && numMatch[1]) {
-            return numMatch[1];
-        }
-    }
-
-    return null;
-}
+// ─── ROBUST CLIPBOARD HELPER ─────────────────────────────────────────────────
 
 async function copyToClipboard(text) {
     if (!text) return false;
@@ -80,12 +59,14 @@ async function copyToClipboard(text) {
             return true;
         } catch {}
     }
+    // Fallback for non-secure contexts, webviews, or restricted permissions
     try {
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
         textArea.style.top = '-9999px';
         textArea.style.left = '-9999px';
+        textArea.setAttribute('readonly', '');
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
@@ -97,56 +78,84 @@ async function copyToClipboard(text) {
     }
 }
 
-window.copyOTP = async function (code) {
-    if (!code) return;
-    await copyToClipboard(code);
-    showToast(`Kode OTP ${code} berhasil disalin!`, 'success');
-};
+// ─── TOAST NOTIFICATION ──────────────────────────────────────────────────────
 
-window.copyDetectedOtp = function () {
-    if (currentDetectedOtp) {
-        copyOTP(currentDetectedOtp);
+let toastTimeout = null;
+
+function showToast(message, type = 'info') {
+    if (!toast || !toastMessage) return;
+
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
     }
-};
 
-// ─── COUNTDOWN PROGRESS BAR ───────────────────────────────────────────────────
+    toastMessage.textContent = message;
 
-function resetCountdown() {
-    countdownSeconds = 15;
-    updateCountdownUI();
+    if (toastIcon) {
+        if (type === 'success') {
+            toastIcon.setAttribute('name', 'checkmark-circle');
+            toastIcon.className = 'text-emerald-400 dark:text-emerald-500 text-lg shrink-0';
+        } else if (type === 'error') {
+            toastIcon.setAttribute('name', 'alert-circle');
+            toastIcon.className = 'text-rose-400 dark:text-rose-500 text-lg shrink-0';
+        } else {
+            toastIcon.setAttribute('name', 'information-circle');
+            toastIcon.className = 'text-sky-400 dark:text-sky-500 text-lg shrink-0';
+        }
+    }
+
+    toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+    toast.classList.add('opacity-100', 'translate-y-0');
+
+    toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+    }, 3000);
 }
+
+// ─── FAST 5S COUNTDOWN & LIVE SYNC ENGINE ─────────────────────────────────────
 
 function updateCountdownUI() {
     const desktopTimer = document.getElementById('refreshTimerLabel');
     const mobileTimer = document.getElementById('mobileRefreshTimerLabel');
     const progressBar = document.getElementById('refreshProgressBar');
 
-    if (desktopTimer) desktopTimer.textContent = `Perbarui: ${countdownSeconds}s`;
-    if (mobileTimer) mobileTimer.textContent = `${countdownSeconds}s`;
+    if (desktopTimer) desktopTimer.textContent = `${countdownRemaining}s`;
+    if (mobileTimer) mobileTimer.textContent = `${countdownRemaining}s`;
 
     if (progressBar) {
-        const pct = Math.max(0, Math.min(100, (countdownSeconds / 15) * 100));
+        const pct = Math.max(0, Math.min(100, (countdownRemaining / POLL_INTERVAL_SECONDS) * 100));
         progressBar.style.width = `${pct}%`;
     }
 }
 
-function startCountdown() {
-    stopCountdown();
-    countdownSeconds = 15;
+function startPolling() {
+    stopPolling();
+    isPollingActive = true;
+    countdownRemaining = POLL_INTERVAL_SECONDS;
     updateCountdownUI();
-    countdownInterval = setInterval(() => {
-        countdownSeconds--;
-        if (countdownSeconds <= 0) {
-            countdownSeconds = 15;
+    setLiveSyncState('active');
+
+    countdownTimerId = setInterval(() => {
+        if (!isPollingActive) return;
+
+        countdownRemaining--;
+        if (countdownRemaining <= 0) {
+            countdownRemaining = POLL_INTERVAL_SECONDS;
+            updateCountdownUI();
+            fetchMessages();
+        } else {
+            updateCountdownUI();
         }
-        updateCountdownUI();
     }, 1000);
 }
 
-function stopCountdown() {
-    if (countdownInterval) {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
+function stopPolling() {
+    isPollingActive = false;
+    if (countdownTimerId) {
+        clearInterval(countdownTimerId);
+        countdownTimerId = null;
     }
 }
 
@@ -154,7 +163,6 @@ function setLiveSyncState(state) {
     if (state === 'active') {
         if (liveSyncText) liveSyncText.textContent = 'Live Sync';
         if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Live Sync';
-        if (sidebarStatusText) sidebarStatusText.textContent = 'Live Sync';
         if (mobileSyncPing) mobileSyncPing.classList.remove('hidden');
         if (mobileSyncDot) {
             mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
@@ -162,15 +170,13 @@ function setLiveSyncState(state) {
     } else if (state === 'paused') {
         if (liveSyncText) liveSyncText.textContent = 'Dijeda';
         if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Dijeda';
-        if (sidebarStatusText) sidebarStatusText.textContent = 'Dijeda';
         if (mobileSyncPing) mobileSyncPing.classList.add('hidden');
         if (mobileSyncDot) {
             mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
         }
     } else if (state === 'syncing') {
-        if (liveSyncText) liveSyncText.textContent = 'Sinkron...';
-        if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Sinkron...';
-        if (sidebarStatusText) sidebarStatusText.textContent = 'Sinkron...';
+        if (liveSyncText) liveSyncText.textContent = 'Sync...';
+        if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Sync...';
     }
 }
 
@@ -179,59 +185,19 @@ function setLiveSyncState(state) {
 async function loadDomainsFromAPI() {
     try {
         const res = await fetch(`${API_BASE}/domains`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.domains && Array.isArray(data.domains) && data.domains.length > 0) {
-                availableDomains = data.domains;
-                return true;
-            }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data && Array.isArray(data.domains) && data.domains.length > 0) {
+            availableDomains = data.domains;
+            return;
         }
     } catch (err) {
-        console.warn('Gagal memuat daftar domain dari API:', err);
+        console.warn('Gagal memuat domain dari server:', err);
     }
-    return false;
-}
-
-async function initializeDomainSelector() {
-    await loadDomainsFromAPI();
-
-    if (availableDomains.length === 0) {
-        availableDomains = ['revd.me'];
-    }
-
-    const savedDomain = localStorage.getItem('selectedDomain');
-    selectedDomain = (savedDomain && availableDomains.includes(savedDomain))
-        ? savedDomain
-        : availableDomains[0];
-
-    renderDomainOptions();
-
-    if (domainTrigger) {
-        domainTrigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (customDomainSelector) {
-                customDomainSelector.classList.toggle('active');
-                domainTrigger.setAttribute('aria-expanded', customDomainSelector.classList.contains('active'));
-            }
-        });
-    }
-
-    document.addEventListener('click', (e) => {
-        if (customDomainSelector && !customDomainSelector.contains(e.target)) {
-            customDomainSelector.classList.remove('active');
-            if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
-        }
-    });
+    availableDomains = ['revd.me'];
 }
 
 function renderDomainOptions() {
-    const domainLabel = `@${selectedDomain}`;
-    if (selectedDomainText) selectedDomainText.textContent = domainLabel;
-    if (mobileSelectedDomainText) mobileSelectedDomainText.textContent = domainLabel;
-
-    const customModalDomain = document.getElementById('customModalDomainDisplay');
-    if (customModalDomain) customModalDomain.textContent = domainLabel;
-
     // Desktop Options
     if (domainOptions) {
         domainOptions.innerHTML = '';
@@ -241,7 +207,7 @@ function renderDomainOptions() {
             option.className = [
                 'w-full text-left px-4 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between',
                 isSelected
-                    ? 'bg-primary-600 text-white shadow-sm'
+                    ? 'bg-primary-600 text-white shadow-xs'
                     : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
             ].join(' ');
             option.innerHTML = `
@@ -298,7 +264,7 @@ async function selectDomain(domain) {
     if (customDomainSelector) customDomainSelector.classList.remove('active');
     if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
-    showToast(`Beralih ke domain @${selectedDomain}`, 'info');
+    showToast(`Domain beralih ke @${selectedDomain}`, 'info');
     await generateEmail(true);
 }
 
@@ -308,7 +274,13 @@ function updateActiveEmailDisplays(email) {
     const text = email || 'Memuat alamat...';
     if (currentEmailText) currentEmailText.textContent = text;
     if (mobileActiveEmail) mobileActiveEmail.textContent = text;
-    if (sidebarEmailDisplay) sidebarEmailDisplay.textContent = text;
+
+    const domainLabel = selectedDomain ? `@${selectedDomain}` : 'Domain';
+    if (selectedDomainText) selectedDomainText.textContent = domainLabel;
+    if (mobileSelectedDomainText) mobileSelectedDomainText.textContent = domainLabel;
+
+    const customModalBadge = document.getElementById('customModalDomainBadge');
+    if (customModalBadge) customModalBadge.textContent = domainLabel;
 }
 
 function saveCurrentEmail(email) {
@@ -365,13 +337,13 @@ async function generateEmail(forceNew = false) {
             consecutiveEmptyPolls = 0;
             allMessages = [];
             renderEmailList();
-            showToast(`Alamat baru siap: ${data.email}`, 'success');
+            showToast(`Email baru siap: ${data.email}`, 'success');
             await fetchMessages();
             startPolling();
         }
     } catch (err) {
         showSkeleton(false);
-        showToast('Gagal membuat alamat baru. Coba lagi.', 'error');
+        showToast('Gagal membuat email baru. Coba lagi.', 'error');
     }
 }
 
@@ -402,7 +374,7 @@ async function generateCustomEmail() {
         const data = await res.json();
         if (!res.ok) {
             showSkeleton(false);
-            showToast(data.error || 'Gagal membuat alamat kustom.', 'error');
+            showToast(data.error || 'Gagal membuat email custom.', 'error');
             return;
         }
 
@@ -411,7 +383,7 @@ async function generateCustomEmail() {
             consecutiveEmptyPolls = 0;
             allMessages = [];
             renderEmailList();
-            showToast(`Alamat kustom dibuat: ${data.email}`, 'success');
+            showToast(`Custom email dibuat: ${data.email}`, 'success');
             await fetchMessages();
             startPolling();
         }
@@ -431,42 +403,39 @@ async function accessExistingEmail() {
     }
 
     closeAccessModal();
-    showSkeleton(true);
     saveCurrentEmail(email);
     consecutiveEmptyPolls = 0;
     allMessages = [];
     renderEmailList();
-
-    showToast(`Memeriksa kotak masuk ${email}…`, 'info');
+    showSkeleton(true);
+    showToast(`Beralih ke: ${email}`, 'info');
     await fetchMessages();
     startPolling();
 }
 
-// ─── FETCH & RENDER MESSAGES ──────────────────────────────────────────────────
+// ─── FETCH & RENDER MESSAGES ─────────────────────────────────────────────────
 
-function showSkeleton(show) {
-    if (skeletonLoading) {
-        skeletonLoading.classList.toggle('hidden', !show);
-    }
-    if (show && emptyState) {
-        emptyState.classList.add('opacity-0', 'pointer-events-none');
-    }
+async function refreshInbox() {
+    if (refreshBtn) refreshBtn.classList.add('rotating');
+    if (mobileRefreshBtn) mobileRefreshBtn.classList.add('rotating');
+    setLiveSyncState('syncing');
+
+    countdownRemaining = POLL_INTERVAL_SECONDS;
+    updateCountdownUI();
+
+    await fetchMessages(true);
 }
 
 async function fetchMessages(isManual = false) {
-    if (!currentEmail) return;
+    if (!currentEmail) {
+        showSkeleton(false);
+        return;
+    }
 
     if (activeAbortController) {
         activeAbortController.abort();
     }
     activeAbortController = new AbortController();
-
-    const refreshBtn = document.getElementById('refreshBtn');
-    const mobileRefreshBtn = document.getElementById('mobileRefreshBtn');
-    if (refreshBtn) refreshBtn.classList.add('rotating');
-    if (mobileRefreshBtn) mobileRefreshBtn.classList.add('rotating');
-
-    setLiveSyncState('syncing');
 
     try {
         const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`, {
@@ -474,7 +443,7 @@ async function fetchMessages(isManual = false) {
         });
 
         if (res.status === 403) {
-            showToast('Alamat email ditolak oleh server.', 'error');
+            showToast('Alamat email ditolak server.', 'error');
             stopPolling();
             showSkeleton(false);
             setLiveSyncState('paused');
@@ -497,11 +466,10 @@ async function fetchMessages(isManual = false) {
         }
 
         renderEmailList();
-        resetCountdown();
         setLiveSyncState('active');
 
         if (isManual) {
-            showToast(incoming.length > 0 ? `${incoming.length} pesan ditemukan` : 'Belum ada email baru', 'info');
+            showToast(incoming.length > 0 ? `${incoming.length} pesan ditemukan` : 'Inbox masih kosong', 'info');
         }
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -526,13 +494,10 @@ function renderEmailList() {
         )
         : allMessages;
 
-    // Update message count indicators across all touchpoints
+    // Update message count badges
     if (sidebarNavCount) {
         sidebarNavCount.textContent = filtered.length;
         sidebarNavCount.classList.toggle('hidden', filtered.length === 0);
-    }
-    if (sidebarMsgCount) {
-        sidebarMsgCount.textContent = filtered.length;
     }
     if (mobileMsgCountBadge) {
         mobileMsgCountBadge.textContent = `${filtered.length} Pesan`;
@@ -555,8 +520,9 @@ function renderEmailList() {
     emailListContainer.innerHTML = '';
 
     filtered.forEach(msg => {
-        const row = document.createElement('div');
-        row.className = 'flex items-start gap-3.5 p-4 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-colors active:bg-slate-100 dark:active:bg-slate-800';
+        const card = document.createElement('div');
+        // Independent, padded card design with balanced margins on both left and right
+        card.className = 'group relative flex items-start gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-850/60 hover:bg-slate-50/80 dark:hover:bg-slate-800 hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-xs cursor-pointer transition-all active:scale-[0.99]';
 
         const senderName = parseSenderName(msg.from);
         const senderEmail = parseSenderEmail(msg.from);
@@ -564,58 +530,81 @@ function renderEmailList() {
         const dateStr = formatDate(msg.date);
         const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
 
-        row.innerHTML = `
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+        card.innerHTML = `
+            <div class="w-10 h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-xs">
                 ${escapeHtml(initial)}
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between gap-2 mb-0.5">
-                    <span class="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
+                    <span class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                         ${escapeHtml(senderName)}
                     </span>
-                    <time class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
+                    <time class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium whitespace-nowrap">
                         ${escapeHtml(dateStr)}
                     </time>
                 </div>
                 <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mb-1">
                     ${escapeHtml(msg.subject || '(Tanpa Subjek)')}
                 </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                    ${escapeHtml(msg.intro || msg.text || '(Tidak ada teks pratinjau)')}
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 leading-relaxed">
+                    ${escapeHtml(msg.intro || msg.text || '(Tidak ada pratinjau teks)')}
                 </div>
                 ${otp ? `
                     <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/80 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200">
                         <span class="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold uppercase tracking-wider">KODE:</span>
                         <span class="font-mono text-sm tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-700 text-slate-900 dark:text-white font-black">${escapeHtml(otp)}</span>
-                        <button onclick="event.stopPropagation(); copyOTP('${escapeHtml(otp)}')"
-                            class="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold rounded-lg uppercase tracking-wider transition-colors active:scale-95 ml-1">
-                            SALIN
+                        <button onclick="event.stopPropagation(); copyOTP('${escapeHtml(otp)}')" class="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold rounded-lg uppercase tracking-wider transition-colors active:scale-95 ml-1">
+                            COPY
                         </button>
                     </div>
                 ` : ''}
             </div>
         `;
 
-        row.addEventListener('click', () => openDetail(msg));
-        emailListContainer.appendChild(row);
+        card.addEventListener('click', () => openDetail(msg));
+        emailListContainer.appendChild(card);
     });
 }
 
-// ─── DETAIL VIEW & SANDBOXED EMAIL RENDERING ─────────────────────────────────
+function showSkeleton(show) {
+    if (skeletonLoading) skeletonLoading.classList.toggle('hidden', !show);
+}
+
+// ─── OTP EXTRACTION HELPER ───────────────────────────────────────────────────
+
+function extractOTP(subject, bodyText) {
+    const combined = `${subject || ''} ${bodyText || ''}`;
+    const patterns = [
+        /(?:otp|verification|verification\s*code|kode\s*verifikasi|security\s*code|login\s*code|pin|auth\s*code)\s*(?:is|adalah|:|-)?\s*[:#]?\s*([0-9]{4,8})\b/i,
+        /\b(?:code|kode)\s*[:#]\s*([0-9]{4,8})\b/i,
+        /\b([0-9]{6})\b/
+    ];
+
+    for (const pat of patterns) {
+        const match = combined.match(pat);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+    return null;
+}
+
+window.copyOTP = async function (code) {
+    if (!code) return;
+    await copyToClipboard(code);
+    showToast(`Kode OTP ${code} disalin!`, 'success');
+};
+
+// ─── DETAIL VIEW ─────────────────────────────────────────────────────────────
 
 async function openDetail(msg) {
-    if (!detailView) return;
+    if (!detailView || !detailSubject || !detailFrom || !detailDate || !detailBody) return;
 
     detailSubject.textContent = msg.subject || '(Tanpa Subjek)';
-    detailSenderName.textContent = parseSenderName(msg.from);
-    detailSenderEmail.textContent = `<${parseSenderEmail(msg.from)}>`;
-    detailRecipient.textContent = currentEmail;
+    detailFrom.textContent = msg.from || 'Pengirim Tidak Diketahui';
     detailDate.textContent = formatFullDate(msg.date);
-    senderAvatar.textContent = (parseSenderName(msg.from) || 'A').charAt(0).toUpperCase();
 
-    // Check & display detected OTP
     const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
-    currentDetectedOtp = otp;
     if (detailOtpBanner && detailOtpCode) {
         if (otp) {
             detailOtpBanner.classList.remove('hidden');
@@ -680,50 +669,53 @@ function renderEmailBody(htmlContent, textContent) {
             <html>
             <head>
                 <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <base target="_blank">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
                     body {
                         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                         font-size: 14px;
                         line-height: 1.6;
                         color: #1e293b;
-                        margin: 16px;
+                        padding: 16px;
+                        margin: 0;
                         word-break: break-word;
                     }
                     img { max-width: 100% !important; height: auto !important; }
-                    table { max-width: 100% !important; }
-                    a { color: #2563eb; }
+                    a { color: #2563eb; text-decoration: underline; }
                 </style>
             </head>
-            <body>
-                ${cleanHtml}
-            </body>
+            <body>${cleanHtml}</body>
             </html>
         `;
     } else {
         detailBody.innerHTML = `
-            <pre class="whitespace-pre-wrap font-sans text-xs sm:text-sm p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
-                ${escapeHtml(textContent || '(Tidak ada konten teks)')}
-            </pre>
+            <div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                <pre class="font-sans text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(textContent || 'Tidak ada konten.')}</pre>
+            </div>
         `;
     }
 }
 
 function closeDetail() {
     if (detailView) detailView.classList.remove('active');
-    currentDetectedOtp = null;
     currentDetailText = '';
 }
 
-window.copyDetailBody = function () {
+window.copyDetailOtp = async function () {
+    if (detailOtpCode) {
+        const code = detailOtpCode.textContent.trim();
+        await copyToClipboard(code);
+        showToast(`Kode OTP ${code} disalin!`, 'success');
+    }
+};
+
+window.copyDetailBody = async function () {
     if (!currentDetailText) {
         showToast('Tidak ada teks untuk disalin.', 'info');
         return;
     }
-    navigator.clipboard.writeText(currentDetailText)
-        .then(() => showToast('Teks email disalin ke clipboard.', 'success'))
-        .catch(() => showToast('Gagal menyalin teks.', 'error'));
+    await copyToClipboard(currentDetailText);
+    showToast('Teks email disalin ke clipboard.', 'success');
 };
 
 window.printEmail = function () {
@@ -731,23 +723,6 @@ window.printEmail = function () {
 };
 
 // ─── POLLING LIFECYCLE ────────────────────────────────────────────────────────
-
-function startPolling() {
-    stopPolling();
-    startCountdown();
-    setLiveSyncState('active');
-    pollingInterval = setInterval(() => {
-        fetchMessages();
-    }, 15000);
-}
-
-function stopPolling() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
-    stopCountdown();
-}
 
 // Automatic Pause/Resume on Visibility Change (Anti-Zombie Polling)
 document.addEventListener('visibilitychange', () => {
@@ -798,11 +773,11 @@ async function generateGmailDotVariants() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/variants/gmail?email=${encodeURIComponent(email)}`);
+        const res = await fetch(`${API_BASE}/gmail-variants?email=${encodeURIComponent(email)}`);
         const data = await res.json();
 
         if (!res.ok) {
-            showToast(data.error || 'Gagal menghasilkan varian.', 'error');
+            showToast(data.error || 'Gagal menghasilkan variasi.', 'error');
             if (list) list.innerHTML = '';
             return;
         }
@@ -810,19 +785,18 @@ async function generateGmailDotVariants() {
         const variants = data.variants || [];
         window.currentGmailVariants = variants;
 
-        if (count) count.textContent = `${variants.length} varian ditemukan`;
         if (stats) stats.classList.remove('hidden');
+        if (count) count.textContent = variants.length;
 
         if (list) {
             list.innerHTML = '';
-            variants.forEach(variant => {
+            variants.forEach(v => {
                 const item = document.createElement('div');
-                item.className = 'flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl transition-colors';
+                item.className = 'flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-300 transition-colors';
                 item.innerHTML = `
-                    <span class="font-mono text-xs text-slate-800 dark:text-slate-200 truncate mr-2">${escapeHtml(variant)}</span>
-                    <button onclick="copySingleVariant('${escapeHtml(variant)}', this)"
-                        class="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-primary-50 dark:hover:bg-primary-950/40 text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg text-xs font-semibold transition-colors active:scale-95 shrink-0">
-                        Salin
+                    <span class="truncate pr-2 select-all">${escapeHtml(v)}</span>
+                    <button onclick="copySingleVariant('${escapeHtml(v)}', this)" class="btn-secondary py-1 px-2 text-[11px] shrink-0">
+                        <span>Salin</span>
                     </button>
                 `;
                 list.appendChild(item);
@@ -920,41 +894,109 @@ function closeCustomModal() {
     if (m) m.classList.remove('active');
 }
 
-// ─── TOAST NOTIFICATIONS ──────────────────────────────────────────────────────
-
-let toastTimeout = null;
-function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    const toastIcon = document.getElementById('toastIcon');
-    if (!toast || !toastMessage) return;
-
-    toastMessage.textContent = message;
-
-    if (toastIcon) {
-        if (type === 'success') {
-            toastIcon.setAttribute('name', 'checkmark-circle');
-            toastIcon.className = 'text-base text-emerald-400 shrink-0';
-        } else if (type === 'error') {
-            toastIcon.setAttribute('name', 'alert-circle');
-            toastIcon.className = 'text-base text-red-400 shrink-0';
-        } else {
-            toastIcon.setAttribute('name', 'information-circle');
-            toastIcon.className = 'text-base text-primary-400 dark:text-primary-600 shrink-0';
-        }
-    }
-
-    toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
-    toast.classList.add('opacity-100', 'translate-y-0');
-
-    if (toastTimeout) clearTimeout(toastTimeout);
-    toastTimeout = setTimeout(() => {
-        toast.classList.remove('opacity-100', 'translate-y-0');
-        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
-    }, 2800);
+function closeAllPanels() {
+    closeDetail();
+    closeGmailGeneratorPage();
+    closeDonasiPage();
+    closeAboutPage();
 }
 
-// ─── UTILITIES & HELPERS ──────────────────────────────────────────────────────
+// ─── SIDEBAR & THEME HELPERS ─────────────────────────────────────────────────
+
+window.setSidebar = function (open) {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar || !backdrop) return;
+
+    if (open) {
+        sidebar.classList.add('active');
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+        backdrop.classList.add('opacity-100');
+    } else {
+        sidebar.classList.remove('active');
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+    }
+};
+
+function toggleSidebar(forceState) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const isCurrentlyActive = sidebar.classList.contains('active');
+    const nextState = (typeof forceState === 'boolean') ? forceState : !isCurrentlyActive;
+    window.setSidebar(nextState);
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = saved === 'dark' || (!saved && prefersDark);
+    applyTheme(isDark);
+}
+
+function applyTheme(isDark) {
+    const html = document.documentElement;
+    const themeIcon = document.getElementById('themeIcon');
+    const mobileThemeIcon = document.getElementById('mobileThemeIcon');
+
+    if (isDark) {
+        html.classList.add('dark');
+        if (themeIcon) themeIcon.setAttribute('name', 'sunny-outline');
+        if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'sunny-outline');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        html.classList.remove('dark');
+        if (themeIcon) themeIcon.setAttribute('name', 'moon-outline');
+        if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'moon-outline');
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    applyTheme(!isDark);
+}
+
+const themeBtn = document.getElementById('themeToggle');
+if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
+const mobileThemeBtn = document.getElementById('mobileThemeToggle');
+if (mobileThemeBtn) mobileThemeBtn.addEventListener('click', toggleTheme);
+
+initTheme();
+
+// ─── DROPDOWNS & ACTIONS ─────────────────────────────────────────────────────
+
+function toggleMobileDomainDropdown(e) {
+    if (e) e.stopPropagation();
+    if (mobileDomainOptions) {
+        mobileDomainOptions.classList.toggle('hidden');
+    }
+}
+
+if (domainTrigger && customDomainSelector) {
+    domainTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = customDomainSelector.classList.contains('active');
+        if (isOpen) {
+            customDomainSelector.classList.remove('active');
+            domainTrigger.setAttribute('aria-expanded', 'false');
+        } else {
+            customDomainSelector.classList.add('active');
+            domainTrigger.setAttribute('aria-expanded', 'true');
+        }
+    });
+}
+
+document.addEventListener('click', (e) => {
+    if (customDomainSelector && !customDomainSelector.contains(e.target)) {
+        customDomainSelector.classList.remove('active');
+        if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
+    }
+    if (mobileDomainOptions && !e.target.closest('#mobileDomainTrigger')) {
+        mobileDomainOptions.classList.add('hidden');
+    }
+});
 
 async function copyEmail() {
     if (!currentEmail) return;
@@ -965,28 +1007,24 @@ async function copyEmail() {
 
     if (mobileText) {
         mobileText.textContent = 'TERSALIN ✓';
-        setTimeout(() => { mobileText.textContent = 'SALIN'; }, 1500);
+        setTimeout(() => { mobileText.textContent = 'COPY'; }, 1500);
     }
     if (desktopText) {
         desktopText.textContent = 'TERSALIN ✓';
-        setTimeout(() => { desktopText.textContent = 'SALIN'; }, 1500);
+        setTimeout(() => { desktopText.textContent = 'COPY'; }, 1500);
     }
 
     if (ok) {
-        showToast(`Alamat ${currentEmail} berhasil disalin!`, 'success');
+        showToast(`Email ${currentEmail} disalin!`, 'success');
     } else {
         showToast(currentEmail, 'info');
     }
 }
 
-function refreshInbox() {
-    fetchMessages(true);
-}
-
 async function deleteCurrentEmail() {
     if (!currentEmail) return;
 
-    if (!confirm(`Hapus alamat ${currentEmail} dari sesi ini?`)) {
+    if (!confirm(`Hapus sesi inbox ${currentEmail}? Seluruh pesan akan dibersihkan.`)) {
         return;
     }
 
@@ -1059,3 +1097,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeDomainSelector();
     await generateEmail(false);
 });
+
+async function initializeDomainSelector() {
+    await loadDomainsFromAPI();
+
+    if (availableDomains.length === 0) {
+        availableDomains = ['revd.me'];
+    }
+
+    const savedDomain = localStorage.getItem('selectedDomain');
+    selectedDomain = (savedDomain && availableDomains.includes(savedDomain))
+        ? savedDomain
+        : availableDomains[0];
+
+    renderDomainOptions();
+    updateActiveEmailDisplays(currentEmail);
+}

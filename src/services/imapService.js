@@ -108,32 +108,8 @@ function stopKeepAlive() {
 }
 
 function startKeepAlive() {
+    // node-imap handles keepalive natively via imapConfig.keepalive: { interval: 10000, forceNoop: true }
     stopKeepAlive();
-    keepAliveTimer = setInterval(async () => {
-        if (!activeConnection || !activeConnection.imap || activeConnection.imap.state !== 'authenticated') {
-            stopKeepAlive();
-            return;
-        }
-        try {
-            // Keepalive via NOOP inside queue: preserves active folder state without race conditions
-            await runExclusive(async () => {
-                if (activeConnection && activeConnection.imap && activeConnection.imap.state === 'authenticated') {
-                    await new Promise((resolve, reject) => {
-                        activeConnection.imap.status(activeFolder || 'INBOX', (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        });
-                    });
-                }
-            });
-            console.log('💓 IMAP keepalive OK (NOOP)');
-        } catch (err) {
-            console.warn('⚠️ IMAP keepalive failed:', err.message);
-            stopKeepAlive();
-            _resetConnection();
-            scheduleReconnect();
-        }
-    }, KEEPALIVE_INTERVAL_MS);
 }
 
 // ─── Auto-reconnect ───────────────────────────────────────────────────────────
@@ -421,8 +397,60 @@ async function fetchImapMessages(tempEmail, limit = 20) {
 
         pruneCache();
 
-        // Populate details: check cache first, fetch full body only for un-cached items
-        const results = await Promise.all(sorted.map(async (item) => {
+        // 1. Group un-cached items by folder for single batch fetch
+        const uncachedByFolder = new Map();
+        for (const item of sorted) {
+            const cacheKey = `${item.folder}::${item.uid}`;
+            const cached = messageCache.get(cacheKey);
+            if (!cached || cached.expiresAt <= Date.now()) {
+                if (!uncachedByFolder.has(item.folder)) uncachedByFolder.set(item.folder, []);
+                uncachedByFolder.get(item.folder).push(item);
+            }
+        }
+
+        for (const [folder, items] of uncachedByFolder.entries()) {
+            try {
+                const uids = items.map(i => String(i.uid));
+                const fullMsgs = await runExclusive(async () => {
+                    await connection.openBox(folder);
+                    return connection.search([['UID', uids.join(',')]], { bodies: [''], markSeen: false });
+                });
+
+                if (fullMsgs && fullMsgs.length > 0) {
+                    await Promise.all(fullMsgs.map(async (m) => {
+                        const bodyPart = m.parts.find(p => p.which === '');
+                        if (bodyPart) {
+                            try {
+                                const parsed = await simpleParser(bodyPart.body);
+                                const originalItem = items.find(i => i.uid === m.attributes.uid);
+                                const sender = parseSender(originalItem?.headers.from);
+                                const cacheKey = `${folder}::${m.attributes.uid}`;
+                                messageCache.set(cacheKey, {
+                                    data: {
+                                        id: m.attributes.uid,
+                                        subject: parsed.subject || (originalItem?.headers.subject?.[0]) || '(No Subject)',
+                                        from: parsed.from?.value?.[0]?.name || sender.name,
+                                        from_email: parsed.from?.value?.[0]?.address || sender.email,
+                                        date: parsed.date || m.attributes.date,
+                                        text: parsed.text || '',
+                                        html: parsed.html || parsed.textAsHtml || ''
+                                    },
+                                    headers: originalItem?.headers || {},
+                                    expiresAt: Date.now() + CACHE_TTL_MS
+                                });
+                            } catch (parseErr) {
+                                console.warn(`⚠️ Failed to parse MIME for UID ${m.attributes.uid}:`, parseErr.message);
+                            }
+                        }
+                    }));
+                }
+            } catch (err) {
+                console.warn(`⚠️ Failed to batch-fetch bodies for folder ${folder}:`, err.message);
+            }
+        }
+
+        // 2. Return sorted results from cache or header fallback
+        const results = sorted.map((item) => {
             const cacheKey = `${item.folder}::${item.uid}`;
             const cached = messageCache.get(cacheKey);
             if (cached && cached.expiresAt > Date.now()) {
@@ -431,45 +459,8 @@ async function fetchImapMessages(tempEmail, limit = 20) {
 
             const sender = parseSender(item.headers.from);
             const subject = (item.headers.subject && item.headers.subject[0]) || '(No Subject)';
-            const id = item.uid;
-
-            // Fetch full body for this specific message
-            try {
-                const fullMsgs = await runExclusive(async () => {
-                    await connection.openBox(item.folder);
-                    return connection.search([['UID', String(item.uid)]], { bodies: [''], markSeen: false });
-                });
-
-                if (fullMsgs && fullMsgs.length > 0) {
-                    const bodyPart = fullMsgs[0].parts.find(p => p.which === '');
-                    if (bodyPart) {
-                        const parsed = await simpleParser(bodyPart.body);
-                        const result = {
-                            id,
-                            subject: parsed.subject || subject,
-                            from: parsed.from?.value?.[0]?.name || sender.name,
-                            from_email: parsed.from?.value?.[0]?.address || sender.email,
-                            date: parsed.date || item.date,
-                            text: parsed.text || '',
-                            html: parsed.html || parsed.textAsHtml || ''
-                        };
-
-                        messageCache.set(cacheKey, {
-                            data: result,
-                            headers: item.headers,
-                            expiresAt: Date.now() + CACHE_TTL_MS
-                        });
-
-                        return result;
-                    }
-                }
-            } catch (bodyErr) {
-                console.warn(`⚠️ Failed to fetch full body for UID ${id}:`, bodyErr.message);
-            }
-
-            // Fallback to header info if body fetch fails
             return {
-                id,
+                id: item.uid,
                 subject,
                 from: sender.name,
                 from_email: sender.email,
@@ -477,7 +468,7 @@ async function fetchImapMessages(tempEmail, limit = 20) {
                 text: '',
                 html: ''
             };
-        }));
+        });
 
         return { messages: results, error: null };
 
