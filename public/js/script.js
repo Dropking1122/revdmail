@@ -608,7 +608,7 @@ function renderEmailList() {
                     <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/80 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200">
                         <span class="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold uppercase tracking-wider">KODE:</span>
                         <span class="font-mono text-sm tracking-widest bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-700 text-slate-900 dark:text-white font-black">${escapeHtml(otp)}</span>
-                        <button onclick="event.stopPropagation(); copyOTP('${escapeHtml(otp)}')" class="px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold rounded-lg uppercase tracking-wider transition-colors active:scale-95 ml-1">
+                        <button onclick="event.stopPropagation(); copyOTP('${escapeHtml(otp)}', this)" class="btn-copy-otp ml-1" aria-label="Salin Kode OTP">
                             COPY
                         </button>
                     </div>
@@ -658,10 +658,19 @@ function extractOTP(subject, bodyText) {
     return null;
 }
 
-window.copyOTP = async function (code) {
+window.copyOTP = async function (code, btn) {
     if (!code) return;
     await copyToClipboard(code);
     showToast(`Kode OTP ${code} disalin!`, 'success');
+    if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = 'TERSALIN ✓';
+        btn.style.backgroundColor = '#16a34a';
+        setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.backgroundColor = '';
+        }, 1500);
+    }
 };
 
 // ─── DETAIL VIEW ─────────────────────────────────────────────────────────────
@@ -771,11 +780,20 @@ function closeDetail() {
     currentDetailText = '';
 }
 
-window.copyDetailOtp = async function () {
+window.copyDetailOtp = async function (btn) {
     if (detailOtpCode) {
         const code = detailOtpCode.textContent.trim();
         await copyToClipboard(code);
         showToast(`Kode OTP ${code} disalin!`, 'success');
+        const targetBtn = btn || document.querySelector('#detailOtpBanner button');
+        if (targetBtn) {
+            const span = targetBtn.querySelector('span');
+            if (span) {
+                const orig = span.textContent;
+                span.textContent = 'TERSALIN ✓';
+                setTimeout(() => { span.textContent = orig; }, 1500);
+            }
+        }
     }
 };
 

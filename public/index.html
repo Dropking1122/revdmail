@@ -258,6 +258,111 @@
             border-color: #3b82f6 !important;
         }
 
+        .mobile-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            min-width: 0;
+            flex: 1 1 0%;
+            padding: 0.4rem 0.35rem;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            border-radius: 0.75rem;
+            background-color: #ffffff;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .dark .mobile-action-btn {
+            background-color: #1e293b;
+            color: #cbd5e1;
+            border-color: #334155;
+        }
+
+        .mobile-action-btn:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .dark .mobile-action-btn:hover {
+            background-color: #334155;
+            color: #ffffff;
+        }
+
+        .mobile-action-btn:active {
+            transform: scale(0.96);
+        }
+
+        .mobile-domain-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.125rem;
+            padding: 0.4rem 0.45rem;
+            border-radius: 0.75rem;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .dark .mobile-domain-btn {
+            background-color: #1e293b;
+            border-color: #334155;
+        }
+
+        .mobile-domain-btn:hover {
+            background-color: #f1f5f9;
+            border-color: #93c5fd;
+        }
+
+        .dark .mobile-domain-btn:hover {
+            background-color: #334155;
+            border-color: #3b82f6;
+        }
+
+        .mobile-domain-btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-copy-otp {
+            background-color: #d97706 !important;
+            color: #ffffff !important;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 0.2rem 0.55rem;
+            border-radius: 0.5rem;
+            letter-spacing: 0.05em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: all 0.15s ease;
+            border: none;
+            cursor: pointer;
+            line-height: 1.2;
+        }
+
+        .btn-copy-otp:hover {
+            background-color: #b45309 !important;
+        }
+
+        .btn-copy-otp:active {
+            transform: scale(0.95);
+        }
+
+        .dark .btn-copy-otp {
+            background-color: #d97706 !important;
+            color: #ffffff !important;
+        }
+
+        .dark .btn-copy-otp:hover {
+            background-color: #f59e0b !important;
+        }
+
         #accessModal, #customModal {
             transition: opacity 0.2s ease, visibility 0.2s ease;
         }
@@ -489,25 +594,25 @@
                     </button>
                 </div>
 
-                <!-- Quick Action Buttons (Generate, Akses, Custom, and Icon-only Globe+Chevron for Domain) -->
-                <div class="flex items-center gap-1.5 sm:gap-2">
-                    <button onclick="generateEmail(true)" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Generate Email Baru">
+                <!-- Quick Action Buttons (Generate, Akses, Custom, and Responsive Domain Trigger) -->
+                <div class="flex items-center gap-1 sm:gap-1.5 w-full">
+                    <button onclick="generateEmail(true)" class="mobile-action-btn" title="Generate Email Baru">
                         <ion-icon name="sync-outline" class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Generate</span>
                     </button>
-                    <button onclick="openAccessModal()" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Akses Email Lama">
+                    <button onclick="openAccessModal()" class="mobile-action-btn" title="Akses Email Lama">
                         <ion-icon name="key-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Akses</span>
                     </button>
-                    <button onclick="openCustomModal()" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Buat Custom Email">
+                    <button onclick="openCustomModal()" class="mobile-action-btn" title="Buat Custom Email">
                         <ion-icon name="create-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Custom</span>
                     </button>
                     <div class="relative shrink-0">
                         <button onclick="toggleMobileDomainDropdown(event)" id="mobileDomainTrigger" type="button"
-                            class="btn-secondary py-1.5 px-2.5 text-xs justify-center items-center gap-1 font-bold" title="Pilih Domain" aria-label="Pilih Domain">
+                            class="mobile-domain-btn" title="Pilih Domain" aria-label="Pilih Domain">
                             <ion-icon name="globe-outline" class="text-sm text-primary-500 shrink-0" aria-hidden="true"></ion-icon>
-                            <ion-icon name="chevron-down-outline" class="text-xs text-slate-400 shrink-0" aria-hidden="true"></ion-icon>
+                            <ion-icon name="chevron-down-outline" class="text-[10px] text-slate-400 shrink-0" aria-hidden="true"></ion-icon>
                         </button>
                         <!-- Drops down cleanly below the button, aligned to the right edge -->
                         <div id="mobileDomainOptions" role="listbox"
@@ -686,7 +791,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button onclick="copyDetailOtp()" class="btn-primary py-1.5 px-3 text-xs shrink-0 !bg-amber-600 hover:!bg-amber-700 font-bold">
+                                <button onclick="copyDetailOtp(this)" class="btn-copy-otp !text-xs !py-1.5 !px-3 font-bold shadow-xs shrink-0">
                                     <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
                                     <span>SALIN OTP</span>
                                 </button>
