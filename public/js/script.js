@@ -746,6 +746,7 @@ async function openDetail(msg) {
         </div>
     `;
 
+    closeAllPanels();
     detailView.classList.add('active');
 
     let fullHtml = msg.html || null;
@@ -874,6 +875,7 @@ document.addEventListener('visibilitychange', () => {
 // ─── GMAIL VARIANT GENERATOR ──────────────────────────────────────────────────
 
 function openGmailGeneratorPage() {
+    closeAllPanels();
     const page = document.getElementById('gmailGeneratorPage');
     if (page) page.classList.add('active');
 }
@@ -973,6 +975,7 @@ window.copyAllGmailVariants = async function () {
 // ─── DONASI & ABOUT PAGES ─────────────────────────────────────────────────────
 
 function openDonasiPage() {
+    closeAllPanels();
     const page = document.getElementById('donasiPage');
     if (page) page.classList.add('active');
 }
@@ -983,6 +986,7 @@ function closeDonasiPage() {
 }
 
 function openAboutPage() {
+    closeAllPanels();
     const page = document.getElementById('aboutPage');
     if (page) page.classList.add('active');
 }
@@ -993,6 +997,7 @@ function closeAboutPage() {
 }
 
 function openApiDocsPage() {
+    closeAllPanels();
     const page = document.getElementById('apiDocsPage');
     if (page) page.classList.add('active');
 }
