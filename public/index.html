@@ -13,53 +13,56 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS (Config defined BEFORE script to ensure darkMode: 'class' is honored) -->
+    <!-- Tailwind CSS (Play CDN: tailwind.config must follow the script) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind = {
-            config: {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: {
-                                50:  '#eff6ff',
-                                100: '#dbeafe',
-                                200: '#bfdbfe',
-                                300: '#93c5fd',
-                                400: '#60a5fa',
-                                500: '#3b82f6',
-                                600: '#2563eb',
-                                700: '#1d4ed8',
-                                800: '#1e40af',
-                                900: '#1e3a8a',
-                                950: '#172554'
-                            },
-                            slate: {
-                                850: '#151f32',
-                                950: '#070b14'
-                            }
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50:  '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#172554'
                         },
-                        fontFamily: {
-                            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-                            mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+                        slate: {
+                            850: '#151f32',
+                            950: '#070b14'
                         }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
                     }
                 }
             }
         };
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Theme Initialization Script (Prevents flash of light theme) -->
+    <!-- Theme Initialization Script (Prevents flash of light/dark theme) -->
     <script>
         (function() {
-            const saved = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved === 'dark' || (!saved && prefersDark)) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
+            try {
+                const saved = localStorage.getItem('theme');
+                if (saved === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else if (saved === 'light') {
+                    document.documentElement.classList.remove('dark');
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {}
         })();
     </script>
 
@@ -78,7 +81,7 @@
             background-color: #f8fafc;
         }
 
-        .dark html, .dark body {
+        html.dark, html.dark body {
             background-color: #0b0f19;
         }
 
@@ -409,7 +412,7 @@
             </div>
 
             <!-- 2. MOBILE MAILBOX HERO STATUS CARD (The primary mobile control card) -->
-            <div class="lg:hidden px-3 sm:px-4 py-2.5 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
+            <div id="mobileHeroCard" class="lg:hidden px-3 sm:px-4 py-2.5 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
                 <!-- Status Row -->
                 <div class="flex items-center justify-between text-xs mb-2">
                     <div class="flex items-center gap-1.5">
@@ -592,22 +595,16 @@
 
                     <!-- Empty State Container -->
                     <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none opacity-0 transition-opacity duration-300">
-                        <div class="w-16 h-16 sm:w-20 sm:h-20 bg-primary-50 dark:bg-slate-850 border border-primary-100 dark:border-slate-750 rounded-3xl flex items-center justify-center mb-4 shadow-xs">
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 bg-primary-50 dark:bg-slate-850 border border-primary-100 dark:border-slate-800 rounded-3xl flex items-center justify-center mb-4 shadow-xs">
                             <ion-icon name="mail-open-outline" class="text-3xl sm:text-4xl text-primary-500 dark:text-primary-400" aria-hidden="true"></ion-icon>
                         </div>
                         <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 mb-1">Inbox Kosong</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-5">
+                        <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed mb-4">
                             Menunggu pesan masuk. Email yang dikirim ke alamat temporermu akan otomatis tampil di sini secara real-time.
                         </p>
-                        <div class="pointer-events-auto flex items-center gap-2">
-                            <button onclick="copyEmail()" class="btn-secondary text-xs py-2 px-3.5">
-                                <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                <span>Copy Email</span>
-                            </button>
-                            <button onclick="refreshInbox()" class="btn-primary text-xs py-2 px-3.5">
-                                <ion-icon name="refresh-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                                <span>Refresh</span>
-                            </button>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800/80 rounded-full text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Menunggu pengiriman pesan...</span>
                         </div>
                     </div>
                 </section>

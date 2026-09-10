@@ -927,7 +927,14 @@ function toggleSidebar(forceState) {
 function initTheme() {
     const saved = localStorage.getItem('theme');
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = saved === 'dark' || (!saved && prefersDark);
+    let isDark;
+    if (saved === 'dark') {
+        isDark = true;
+    } else if (saved === 'light') {
+        isDark = false;
+    } else {
+        isDark = !!prefersDark;
+    }
     applyTheme(isDark);
 }
 
