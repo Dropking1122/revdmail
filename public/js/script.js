@@ -522,6 +522,13 @@ async function fetchMessages(isManual = false) {
     }
 }
 
+function getShortSnippet(msg, maxChars = 65) {
+    const raw = (msg.intro || msg.text || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return 'Tidak ada pratinjau teks';
+    if (raw.length <= maxChars) return raw;
+    return raw.slice(0, maxChars).trim() + '...';
+}
+
 function renderEmailList() {
     if (!emailListContainer) return;
 
@@ -569,14 +576,14 @@ function renderEmailList() {
 
     filtered.forEach(msg => {
         const card = document.createElement('div');
-        // Independent, padded card design with balanced margins on both left and right
-        card.className = 'group relative flex items-start gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-850/60 hover:bg-slate-50/80 dark:hover:bg-slate-800 hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-xs cursor-pointer transition-all active:scale-[0.99]';
+        card.className = 'email-inbox-card group relative flex items-start gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl hover:shadow-xs cursor-pointer transition-all active:scale-[0.99]';
 
         const senderName = parseSenderName(msg.from);
         const senderEmail = parseSenderEmail(msg.from);
         const initial = (senderName || 'A').charAt(0).toUpperCase();
         const dateStr = formatDate(msg.date);
         const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
+        const snippet = getShortSnippet(msg, 65);
 
         card.innerHTML = `
             <div class="w-10 h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-xs">
@@ -594,8 +601,8 @@ function renderEmailList() {
                 <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mb-1">
                     ${escapeHtml(msg.subject || '(Tanpa Subjek)')}
                 </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 leading-relaxed">
-                    ${escapeHtml(msg.intro || msg.text || '(Tidak ada pratinjau teks)')}
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-relaxed">
+                    ${escapeHtml(snippet)}
                 </div>
                 ${otp ? `
                     <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800/80 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200">
@@ -721,7 +728,7 @@ function renderEmailBody(htmlContent, textContent) {
             : htmlContent;
 
         const iframe = document.createElement('iframe');
-        iframe.className = 'w-full h-full border-0 min-h-[480px] bg-white dark:bg-slate-900 rounded-xl';
+        iframe.className = 'w-full max-w-5xl flex-1 border-0 min-h-[520px] sm:min-h-[640px] bg-white rounded-2xl shadow-sm';
         iframe.setAttribute('sandbox', 'allow-popups allow-popups-to-escape-sandbox');
         detailBody.innerHTML = '';
         detailBody.appendChild(iframe);
@@ -741,6 +748,7 @@ function renderEmailBody(htmlContent, textContent) {
                         padding: 16px;
                         margin: 0;
                         word-break: break-word;
+                        background: #ffffff;
                     }
                     img { max-width: 100% !important; height: auto !important; }
                     a { color: #2563eb; text-decoration: underline; }
@@ -751,8 +759,8 @@ function renderEmailBody(htmlContent, textContent) {
         `;
     } else {
         detailBody.innerHTML = `
-            <div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                <pre class="font-sans text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(textContent || 'Tidak ada konten.')}</pre>
+            <div class="w-full max-w-5xl p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex-1">
+                <pre class="font-sans text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(textContent || 'Tidak ada konten.')}</pre>
             </div>
         `;
     }
