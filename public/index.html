@@ -435,8 +435,6 @@
                             <span id="mobileSyncDot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <span id="mobileLiveSyncLabel" class="font-semibold text-emerald-700 dark:text-emerald-400 text-[11px]">Live Sync</span>
-                        <span class="text-slate-300 dark:text-slate-700">•</span>
-                        <span id="mobileRefreshTimerLabel" class="text-slate-500 dark:text-slate-400 font-mono text-[11px]">5s</span>
                     </div>
                     <div>
                         <span id="mobileMsgCountBadge" class="bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded-full font-mono text-[11px] font-bold">0 Pesan</span>
@@ -459,30 +457,29 @@
                     </button>
                 </div>
 
-                <!-- Quick Action Buttons (4 Buttons: Generate, Akses, Custom, Domain) -->
-                <div class="grid grid-cols-4 gap-1.5 sm:gap-2">
-                    <button onclick="generateEmail(true)" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Generate Email Baru">
+                <!-- Quick Action Buttons (Generate, Akses, Custom, and Icon-only Globe+Chevron for Domain) -->
+                <div class="flex items-center gap-1.5 sm:gap-2">
+                    <button onclick="generateEmail(true)" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Generate Email Baru">
                         <ion-icon name="sparkles-outline" class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Generate</span>
                     </button>
-                    <button onclick="openAccessModal()" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Akses Email Lama">
+                    <button onclick="openAccessModal()" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Akses Email Lama">
                         <ion-icon name="key-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Akses</span>
                     </button>
-                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Buat Custom Email">
+                    <button onclick="openCustomModal()" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Buat Custom Email">
                         <ion-icon name="create-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Custom</span>
                     </button>
-                    <div class="relative">
+                    <div class="relative shrink-0">
                         <button onclick="toggleMobileDomainDropdown(event)" id="mobileDomainTrigger" type="button"
-                            class="btn-secondary w-full py-1.5 px-1 sm:px-2 text-xs justify-center truncate font-bold" title="Pilih Domain">
+                            class="btn-secondary py-1.5 px-2.5 text-xs justify-center items-center gap-1 font-bold" title="Pilih Domain" aria-label="Pilih Domain">
                             <ion-icon name="globe-outline" class="text-sm text-primary-500 shrink-0" aria-hidden="true"></ion-icon>
-                            <span id="mobileSelectedDomainText" class="truncate">Domain</span>
-                            <ion-icon name="chevron-down-outline" class="text-xs text-slate-400 shrink-0"></ion-icon>
+                            <ion-icon name="chevron-down-outline" class="text-xs text-slate-400 shrink-0" aria-hidden="true"></ion-icon>
                         </button>
-                        <!-- Hidden by default: only shows when clicked -->
+                        <!-- Drops down cleanly below the button, aligned to the right edge -->
                         <div id="mobileDomainOptions" role="listbox"
-                            class="hidden absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden">
+                            class="hidden absolute top-full right-0 mt-1.5 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden">
                             <!-- Injected by JS -->
                         </div>
                     </div>
