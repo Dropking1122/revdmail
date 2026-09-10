@@ -402,10 +402,10 @@
 
     <!-- 2. MAIN APPLICATION WORKSPACE -->
     <main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <div id="mainCard" class="flex-1 flex flex-col h-full overflow-hidden lg:m-2.5 lg:rounded-2xl lg:border lg:border-slate-200/80 dark:lg:border-slate-800/80 bg-white dark:bg-slate-900 shadow-xs">
+        <div id="mainCard" class="relative flex-1 flex flex-col h-full overflow-hidden lg:m-2.5 lg:rounded-2xl lg:border lg:border-slate-200/80 dark:lg:border-slate-800/80 bg-white dark:bg-slate-900 shadow-xs">
 
-            <!-- 1. MOBILE TOP NAVIGATION BAR (Visible only on mobile/tablet < lg) -->
-            <div class="flex items-center justify-between px-3 sm:px-4 py-2 h-14 border-b border-slate-200/80 dark:border-slate-800/80 lg:hidden bg-white dark:bg-slate-900 shrink-0">
+            <!-- 1. MOBILE TOP NAVIGATION BAR (Unified with Loading Bar & Action Icons) -->
+            <div class="relative flex items-center justify-between px-3 sm:px-4 py-2 h-14 border-b border-slate-200/80 dark:border-slate-800/80 lg:hidden bg-white dark:bg-slate-900 shrink-0 z-30">
                 <div class="flex items-center gap-2">
                     <button class="icon-btn shrink-0" onclick="toggleSidebar()" aria-label="Buka menu navigasi">
                         <ion-icon name="menu-outline" class="text-xl" aria-hidden="true"></ion-icon>
@@ -417,18 +417,46 @@
                         <span class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">REVDMAIL</span>
                     </div>
                 </div>
-                <!-- Single Theme Toggle on Mobile Header (No redundant refresh/generate here) -->
+
+                <!-- Action Controls: Search Icon, Refresh Button, Theme Toggle -->
                 <div class="flex items-center gap-1">
+                    <button onclick="toggleSearchPopup()" id="mobileSearchBtn" class="icon-btn" title="Cari Email" aria-label="Buka pencarian email">
+                        <ion-icon name="search-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    </button>
+                    <button id="refreshBtn" onclick="refreshInbox()" class="icon-btn" title="Refresh" aria-label="Refresh inbox">
+                        <ion-icon name="refresh-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    </button>
+                    <button onclick="deleteCurrentEmail()" class="icon-btn hover:!text-red-500" title="Hapus Sesi" aria-label="Hapus sesi">
+                        <ion-icon name="trash-outline" class="text-lg" aria-hidden="true"></ion-icon>
+                    </button>
                     <button id="mobileThemeToggle" onclick="toggleTheme()" class="icon-btn" aria-label="Ganti mode tampilan">
                         <ion-icon id="mobileThemeIcon" name="sunny-outline" class="text-lg" aria-hidden="true"></ion-icon>
                     </button>
                 </div>
+
+                <!-- Unified Slim Top Loading Progress Bar (Mobile) -->
+                <div class="absolute bottom-0 inset-x-0 h-[2.5px] bg-slate-100 dark:bg-slate-800 overflow-hidden pointer-events-none">
+                    <div id="refreshProgressBar" class="h-full bg-primary-500 transition-all duration-300 w-full"></div>
+                </div>
             </div>
 
-            <!-- 2. MOBILE MAILBOX HERO STATUS CARD (The primary mobile control card) -->
-            <div id="mobileHeroCard" class="lg:hidden px-3 sm:px-4 py-2.5 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
+            <!-- SEARCH POPUP (Drops down below navbar when search icon is clicked) -->
+            <div id="searchPopup" class="hidden absolute top-14 lg:top-16 inset-x-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2.5 shadow-xl animate-fade-in">
+                <div class="max-w-xl mx-auto relative flex items-center">
+                    <ion-icon name="search-outline" class="absolute left-3 text-slate-400 text-sm pointer-events-none" aria-hidden="true"></ion-icon>
+                    <input type="search" id="searchInput" placeholder="Cari pesan, pengirim, atau subjek..."
+                        class="w-full pl-9 pr-9 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+                        autocomplete="off" aria-label="Cari email">
+                    <button onclick="clearSearchAndClose()" class="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1" aria-label="Tutup pencarian">
+                        <ion-icon name="close-circle" class="text-lg" aria-hidden="true"></ion-icon>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. MOBILE MAILBOX HERO STATUS CARD (Compact, clean, maximum space for list) -->
+            <div id="mobileHeroCard" class="lg:hidden px-3 sm:px-4 py-2 bg-slate-50/90 dark:bg-slate-850/90 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
                 <!-- Status Row -->
-                <div class="flex items-center justify-between text-xs mb-2">
+                <div class="flex items-center justify-between text-xs mb-1.5">
                     <div class="flex items-center gap-1.5">
                         <span class="relative flex h-2 w-2">
                             <span id="mobileSyncPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -441,16 +469,13 @@
                     </div>
                 </div>
 
-                <!-- Active Email Box -->
-                <div class="flex items-center justify-between gap-2 p-2 sm:p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl mb-2 shadow-xs">
-                    <div class="flex-1 min-w-0 pr-1">
-                        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Email Aktif</div>
-                        <div id="mobileActiveEmail" class="font-mono text-xs font-bold text-slate-900 dark:text-white truncate select-all">
-                            Memuat alamat...
-                        </div>
+                <!-- Active Email Box: Email and Copy Button only (no 'Email Aktif' label) -->
+                <div class="flex items-center justify-between gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl mb-2 shadow-xs">
+                    <div id="mobileActiveEmail" class="font-mono text-xs font-bold text-slate-900 dark:text-white truncate select-all flex-1 min-w-0">
+                        Memuat alamat...
                     </div>
                     <button onclick="copyEmail()" id="mobileCopyBtn"
-                        class="px-2.5 py-1.5 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs shrink-0 active:scale-95 transition-all"
+                        class="px-2.5 py-1 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs shrink-0 active:scale-95 transition-all"
                         aria-label="Salin alamat email">
                         <ion-icon name="copy-outline" class="text-sm" aria-hidden="true"></ion-icon>
                         <span id="mobileCopyBtnText">COPY</span>
@@ -487,7 +512,7 @@
             </div>
 
             <!-- 3. DESKTOP HEADER (Visible only on desktop lg+) -->
-            <header class="hidden lg:flex items-center gap-3 px-5 py-3 h-16 border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 z-10 shrink-0">
+            <header class="relative hidden lg:flex items-center gap-3 px-5 py-3 h-16 border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 z-10 shrink-0">
                 <!-- Active Email Pill -->
                 <div class="flex items-center gap-2.5 px-4 py-2 bg-slate-50 dark:bg-slate-850 hover:bg-primary-50/70 dark:hover:bg-primary-950/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl transition-all cursor-pointer select-none max-w-md group"
                     onclick="copyEmail()" title="Klik untuk menyalin alamat" role="button" tabindex="0" aria-label="Salin alamat email saat ini">
@@ -512,6 +537,11 @@
 
                 <!-- Desktop Controls on Right -->
                 <div class="flex items-center gap-2 ml-auto shrink-0">
+                    <!-- Search Icon Button -->
+                    <button onclick="toggleSearchPopup()" id="desktopSearchBtn" class="icon-btn" title="Cari Pesan" aria-label="Cari pesan">
+                        <ion-icon name="search-outline" class="text-base" aria-hidden="true"></ion-icon>
+                    </button>
+
                     <button onclick="generateEmail(true)" class="btn-primary py-1.5 px-3 text-xs" title="Generate Email" aria-label="Generate Email baru">
                         <ion-icon name="sparkles-outline" class="text-sm" aria-hidden="true"></ion-icon>
                         <span>Generate Email</span>
@@ -534,56 +564,35 @@
                             <span id="selectedDomainText" class="truncate max-w-[110px]">Domain</span>
                             <ion-icon name="chevron-down-outline" class="text-xs text-slate-400" aria-hidden="true"></ion-icon>
                         </button>
-                        <!-- Notice 'hidden' class: never floats open on load -->
                         <div id="domainOptions" role="listbox"
                             class="hidden absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden animate-fade-in">
                             <!-- Injected by JS -->
                         </div>
                     </div>
 
+                    <!-- Refresh Button on Desktop -->
+                    <button onclick="refreshInbox()" class="icon-btn" title="Refresh Inbox" aria-label="Refresh inbox">
+                        <ion-icon name="refresh-outline" class="text-base" aria-hidden="true"></ion-icon>
+                    </button>
+
+                    <!-- Delete Session Button on Desktop -->
+                    <button onclick="deleteCurrentEmail()" class="icon-btn hover:!text-red-500" title="Hapus Sesi Email" aria-label="Hapus sesi email saat ini">
+                        <ion-icon name="trash-outline" class="text-base" aria-hidden="true"></ion-icon>
+                    </button>
+
                     <!-- Desktop Theme Toggle -->
                     <button onclick="toggleTheme()" class="icon-btn ml-1" title="Ganti Mode Tampilan" aria-label="Ganti mode terang atau gelap">
                         <ion-icon id="desktopThemeIcon" name="sunny-outline" class="text-lg" aria-hidden="true"></ion-icon>
                     </button>
                 </div>
+
+                <!-- Unified Slim Top Loading Progress Bar (Desktop) -->
+                <div class="absolute bottom-0 inset-x-0 h-[2.5px] bg-slate-100 dark:bg-slate-800 overflow-hidden pointer-events-none">
+                    <div id="desktopRefreshProgressBar" class="h-full bg-primary-500 transition-all duration-300 w-full"></div>
+                </div>
             </header>
 
-            <!-- 4. TOOLBAR (Search, Countdown Timer & Single Refresh Button) -->
-            <div id="inboxToolbar" class="shrink-0 flex items-center gap-2.5 px-3 sm:px-5 py-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-850/50">
-                <!-- Search Input -->
-                <div class="relative flex-1 max-w-sm">
-                    <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
-                        <ion-icon name="search-outline" class="text-sm" aria-hidden="true"></ion-icon>
-                    </div>
-                    <input type="search" id="searchInput" placeholder="Cari pesan atau pengirim..."
-                        class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500/40 transition-all"
-                        autocomplete="off" aria-label="Cari email dalam inbox">
-                </div>
-
-                <!-- Refresh & Countdown Timer (Only ONE Refresh button on mobile here) -->
-                <div class="flex items-center gap-2 ml-auto">
-                    <!-- Progress Countdown -->
-                    <div class="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                        <span id="refreshTimerLabel" class="hidden sm:inline font-semibold">5s</span>
-                        <div class="w-10 sm:w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div id="refreshProgressBar" class="h-full bg-primary-500 transition-all duration-300 w-full"></div>
-                        </div>
-                    </div>
-
-                    <!-- Single Refresh Button -->
-                    <button id="refreshBtn" onclick="refreshInbox()" class="icon-btn" title="Refresh" aria-label="Refresh inbox">
-                        <ion-icon name="refresh-outline" class="text-base" aria-hidden="true"></ion-icon>
-                    </button>
-
-                    <!-- Delete Session Button -->
-                    <button onclick="deleteCurrentEmail()" class="icon-btn hover:!bg-red-50 dark:hover:!bg-red-950/40 hover:!text-red-600 dark:hover:!text-red-400"
-                        title="Hapus Sesi Email" aria-label="Hapus sesi email saat ini">
-                        <ion-icon name="trash-outline" class="text-base" aria-hidden="true"></ion-icon>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 5. CENTRAL WORKSPACE (Email List, Details, Subpages) -->
+            <!-- 4. CENTRAL WORKSPACE (Email List, Details, Subpages) -->
             <div class="flex-1 min-h-0 flex flex-col overflow-hidden relative bg-slate-50/40 dark:bg-slate-950/30">
 
                 <!-- 1. Email List View -->

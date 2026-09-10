@@ -119,14 +119,16 @@ function showToast(message, type = 'info') {
 function updateCountdownUI() {
     const desktopTimer = document.getElementById('refreshTimerLabel');
     const mobileTimer = document.getElementById('mobileRefreshTimerLabel');
-    const progressBar = document.getElementById('refreshProgressBar');
+    const progressBars = document.querySelectorAll('#refreshProgressBar, #desktopRefreshProgressBar');
 
     if (desktopTimer) desktopTimer.textContent = `${countdownRemaining}s`;
     if (mobileTimer) mobileTimer.textContent = `${countdownRemaining}s`;
 
-    if (progressBar) {
+    if (progressBars.length) {
         const pct = Math.max(0, Math.min(100, (countdownRemaining / POLL_INTERVAL_SECONDS) * 100));
-        progressBar.style.width = `${pct}%`;
+        progressBars.forEach(pb => {
+            pb.style.width = `${pct}%`;
+        });
     }
 }
 
@@ -1146,11 +1148,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // Close search popup when clicking outside
+    document.addEventListener('click', (e) => {
+        const searchPopup = document.getElementById('searchPopup');
+        const mobileSearchBtn = document.getElementById('mobileSearchBtn');
+        const desktopSearchBtn = document.getElementById('desktopSearchBtn');
+
+        if (searchPopup && !searchPopup.classList.contains('hidden')) {
+            if (!searchPopup.contains(e.target) &&
+                (!mobileSearchBtn || !mobileSearchBtn.contains(e.target)) &&
+                (!desktopSearchBtn || !desktopSearchBtn.contains(e.target))) {
+                toggleSearchPopup(false);
+            }
+        }
+    });
+
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeAccessModal();
             closeCustomModal();
             closeDetail();
+            toggleSearchPopup(false);
             if (window.setSidebar) setSidebar(false);
         }
     });
@@ -1158,6 +1176,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initializeDomainSelector();
     await generateEmail(false);
 });
+
+// Search Popup Controller
+function toggleSearchPopup(forceState) {
+    const popup = document.getElementById('searchPopup');
+    if (!popup) return;
+    const isHidden = popup.classList.contains('hidden');
+    const newState = (typeof forceState === 'boolean') ? forceState : isHidden;
+
+    if (newState) {
+        popup.classList.remove('hidden');
+        const input = document.getElementById('searchInput');
+        if (input) {
+            setTimeout(() => input.focus(), 60);
+        }
+    } else {
+        popup.classList.add('hidden');
+    }
+}
+
+function clearSearchAndClose() {
+    const input = document.getElementById('searchInput');
+    if (input) {
+        input.value = '';
+        renderEmailList();
+    }
+    toggleSearchPopup(false);
+}
 
 async function initializeDomainSelector() {
     await loadDomainsFromAPI();
@@ -1196,6 +1241,8 @@ window.toggleSidebar = toggleSidebar;
 window.setSidebar = setSidebar;
 window.toggleMobileDomainDropdown = toggleMobileDomainDropdown;
 window.toggleDesktopDomainDropdown = toggleDesktopDomainDropdown;
+window.toggleSearchPopup = toggleSearchPopup;
+window.clearSearchAndClose = clearSearchAndClose;
 window.openGmailGeneratorPage = openGmailGeneratorPage;
 window.closeGmailGeneratorPage = closeGmailGeneratorPage;
 window.generateGmailDotVariants = generateGmailDotVariants;
