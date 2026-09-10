@@ -8,5 +8,6 @@ router.get('/messages', apiController.getMessages);
 router.get('/message/:id', apiController.getMessageDetail);
 router.get('/domains', apiController.getDomains);
 router.get('/gmail-generator', apiController.gmailGenerator);
+router.get('/gmail-variants', apiController.gmailGenerator);
 
 module.exports = router;

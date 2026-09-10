@@ -13,40 +13,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS (Play CDN: tailwind.config must follow the script) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50:  '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
-                            950: '#172554'
-                        },
-                        slate: {
-                            850: '#151f32',
-                            950: '#070b14'
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
-                    }
-                }
-            }
-        };
-    </script>
+    <!-- Production Tailwind CSS (Compiled static stylesheet, no CDN warning) -->
+    <link rel="stylesheet" href="/css/tailwind.css">
 
     <!-- Theme Initialization Script (Prevents flash of light/dark theme) -->
     <script>
@@ -340,7 +308,7 @@
             <div class="space-y-2 mb-4">
                 <button class="btn-primary w-full justify-between shadow-xs" onclick="generateEmail(true); if(window.setSidebar) setSidebar(false);">
                     <span class="flex items-center gap-2">
-                        <ion-icon name="sparkles-outline" class="text-base" aria-hidden="true"></ion-icon>
+                        <ion-icon name="sync-outline" class="text-base" aria-hidden="true"></ion-icon>
                         <span>Generate Email</span>
                     </span>
                     <span class="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold">BARU</span>
@@ -399,7 +367,7 @@
             </div>
 
             <div class="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-100 dark:border-slate-800">
-                <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Mode Tampilan</span>
+                <span id="themeModeLabel" class="text-xs font-medium text-slate-600 dark:text-slate-400">Dark Mode</span>
                 <button id="themeToggle" onclick="toggleTheme()"
                     class="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-slate-700 text-slate-600 dark:text-amber-400 shadow-xs transition-transform active:scale-90"
                     aria-label="Ganti mode terang atau gelap">
@@ -497,7 +465,7 @@
                 <!-- Quick Action Buttons (Generate, Akses, Custom, and Icon-only Globe+Chevron for Domain) -->
                 <div class="flex items-center gap-1.5 sm:gap-2">
                     <button onclick="generateEmail(true)" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Generate Email Baru">
-                        <ion-icon name="sparkles-outline" class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true"></ion-icon>
+                        <ion-icon name="sync-outline" class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true"></ion-icon>
                         <span class="truncate">Generate</span>
                     </button>
                     <button onclick="openAccessModal()" class="btn-secondary flex-1 py-1.5 px-2 text-xs justify-center font-bold" title="Akses Email Lama">
@@ -546,7 +514,7 @@
                     </button>
 
                     <button onclick="generateEmail(true)" class="btn-primary py-1.5 px-3 text-xs" title="Generate Email" aria-label="Generate Email baru">
-                        <ion-icon name="sparkles-outline" class="text-sm" aria-hidden="true"></ion-icon>
+                        <ion-icon name="sync-outline" class="text-sm" aria-hidden="true"></ion-icon>
                         <span>Generate Email</span>
                     </button>
                     <button onclick="openAccessModal()" class="btn-secondary py-1.5 px-3 text-xs" title="Akses Email" aria-label="Akses email lama">

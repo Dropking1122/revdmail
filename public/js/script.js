@@ -811,7 +811,7 @@ async function generateGmailDotVariants() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/gmail-variants?email=${encodeURIComponent(email)}`);
+        const res = await fetch(`${API_BASE}/gmail-generator?email=${encodeURIComponent(email)}`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -846,7 +846,7 @@ async function generateGmailDotVariants() {
     }
 }
 
-window.copySingleVariant = async function (text, btn) {
+async function copySingleVariant(text, btn) {
     const ok = await copyToClipboard(text);
     if (ok) {
         showToast(`Alamat ${text} disalin!`, 'success');
@@ -862,7 +862,11 @@ window.copySingleVariant = async function (text, btn) {
     } else {
         showToast(text, 'info');
     }
-};
+}
+
+const copyGmailVariant = copySingleVariant;
+window.copySingleVariant = copySingleVariant;
+window.copyGmailVariant = copyGmailVariant;
 
 window.copyAllGmailVariants = async function () {
     if (!window.currentGmailVariants || window.currentGmailVariants.length === 0) return;
@@ -1002,6 +1006,7 @@ function applyTheme(isDark) {
     const themeIcon = document.getElementById('themeIcon');
     const mobileThemeIcon = document.getElementById('mobileThemeIcon');
     const desktopThemeIcon = document.getElementById('desktopThemeIcon');
+    const themeModeLabel = document.getElementById('themeModeLabel');
 
     if (isDark) {
         html.classList.add('dark');
@@ -1009,12 +1014,14 @@ function applyTheme(isDark) {
         if (themeIcon) themeIcon.setAttribute('name', 'sunny-outline');
         if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'sunny-outline');
         if (desktopThemeIcon) desktopThemeIcon.setAttribute('name', 'sunny-outline');
+        if (themeModeLabel) themeModeLabel.textContent = 'Dark Mode';
     } else {
         html.classList.remove('dark');
         localStorage.setItem('theme', 'light');
         if (themeIcon) themeIcon.setAttribute('name', 'moon-outline');
         if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'moon-outline');
         if (desktopThemeIcon) desktopThemeIcon.setAttribute('name', 'moon-outline');
+        if (themeModeLabel) themeModeLabel.textContent = 'Light Mode';
     }
 }
 

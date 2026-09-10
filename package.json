@@ -18,5 +18,8 @@
     "helmet": "^8.3.0",
     "imap-simple": "^5.1.0",
     "mailparser": "^3.9.14"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
   }
 }
