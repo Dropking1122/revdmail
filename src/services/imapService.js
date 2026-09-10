@@ -6,10 +6,7 @@ let connectionPromise = null;
 let cachedFolders = null;
 let keepAliveTimer = null;
 let reconnectTimer = null;
-let connectionIsNew = false;
 
-// How often to ping IMAP to prevent Gmail idle-timeout (~30 min).
-const KEEPALIVE_INTERVAL_MS = 8 * 60 * 1000;
 const RECONNECT_DELAY_MS = 5000;
 
 // In-memory body cache for parsed messages (UID -> ParsedObject)
@@ -195,7 +192,6 @@ async function getImapConnection() {
             });
 
             activeConnection = connection;
-            connectionIsNew = true;
 
             startKeepAlive();
             return connection;
@@ -305,9 +301,6 @@ function parseSender(fromHeader) {
 async function fetchImapMessages(tempEmail, limit = 20) {
     try {
         const connection = await getImapConnection();
-        const isNew = connectionIsNew;
-        connectionIsNew = false;
-
         const { allMail, spam } = await getSpecialFolders(connection);
 
         // Substring search in IMAP finds candidate messages quickly
@@ -537,6 +530,10 @@ async function fetchMessageDetail(uid, tempEmail) {
         return { message: null, error: 'Message not found.' };
     } catch (err) {
         console.error('fetchMessageDetail error:', err);
+        _resetConnection();
+        if (process.env.IMAP_USER && process.env.IMAP_PASSWORD && process.env.IMAP_SERVER) {
+            scheduleReconnect();
+        }
         return { message: null, error: err.message };
     }
 }

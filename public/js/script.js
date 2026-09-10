@@ -29,7 +29,6 @@ const searchInput = document.getElementById('searchInput');
 const domainTrigger = document.getElementById('domainTrigger');
 const domainOptions = document.getElementById('domainOptions');
 const selectedDomainText = document.getElementById('selectedDomainText');
-const customDomainSelector = document.getElementById('customDomainSelector');
 const mobileDomainOptions = document.getElementById('mobileDomainOptions');
 const mobileSelectedDomainText = document.getElementById('mobileSelectedDomainText');
 const refreshBtn = document.getElementById('refreshBtn');
@@ -624,29 +623,23 @@ function renderEmailList() {
         const snippet = getShortSnippet(msg, 65);
 
         card.innerHTML = `
-            <!-- Read / Unread Status Indicator Dot -->
-            <div class="pt-1 shrink-0">
-                ${isRead ? `
-                    <span class="inline-block w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 opacity-60" title="Pesan Sudah Dibaca"></span>
-                ` : `
-                    <span class="inline-block w-2 h-2 rounded-full bg-primary-500 shadow-xs ring-2 ring-primary-500/25" title="Pesan Baru (Belum Dibaca)"></span>
-                `}
-            </div>
             <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2 mb-0.5">
+                <div class="flex items-center justify-between gap-2 mb-1">
                     <div class="flex items-center gap-2 min-w-0">
-                        <span class="${isRead ? 'font-medium text-slate-600 dark:text-slate-400' : 'font-extrabold text-slate-900 dark:text-white'} text-xs sm:text-sm truncate">
+                        <span class="${isRead ? 'font-semibold text-slate-700 dark:text-slate-300' : 'font-extrabold text-slate-900 dark:text-white'} text-xs sm:text-sm truncate">
                             ${escapeHtml(senderName)}
                         </span>
-                        ${!isRead ? `
-                            <span class="text-[9px] font-extrabold bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider shrink-0">BARU</span>
-                        ` : ''}
+                        ${isRead ? `
+                            <span class="badge-status-dibaca shrink-0">DIBACA</span>
+                        ` : `
+                            <span class="badge-status-baru shrink-0">BARU</span>
+                        `}
                     </div>
                     <time class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium whitespace-nowrap">
                         ${escapeHtml(dateStr)}
                     </time>
                 </div>
-                <div class="text-xs ${isRead ? 'font-normal text-slate-600 dark:text-slate-400' : 'font-bold text-slate-800 dark:text-slate-200'} truncate mb-0.5">
+                <div class="text-xs ${isRead ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-bold text-slate-900 dark:text-white'} truncate mb-0.5">
                     ${escapeHtml(msg.subject || '(Tanpa Subjek)')}
                 </div>
                 <div class="text-[11px] ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'} truncate leading-relaxed">
