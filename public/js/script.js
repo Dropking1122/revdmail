@@ -1015,6 +1015,18 @@ window.copyRek = async function (elementId, btn) {
     }
 };
 
+window.copyCodeText = async function (btn) {
+    const container = btn.closest('.code-block') || btn.parentElement.nextElementSibling;
+    const codeEl = container ? container.querySelector('code') : null;
+    if (!codeEl) return;
+    const text = codeEl.innerText.trim();
+    await copyToClipboard(text);
+    showToast('Tersalin ke clipboard!', 'success');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<span class="text-emerald-500 dark:text-emerald-400 font-bold">TERSALIN ✓</span>';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+};
+
 // ─── MODAL CONTROLS ───────────────────────────────────────────────────────────
 
 function openAccessModal() {
