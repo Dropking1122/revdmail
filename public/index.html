@@ -285,6 +285,13 @@
             }
         }
 
+        @media (min-width: 1024px) {
+            #sidebar {
+                transform: none !important;
+                position: static !important;
+            }
+        }
+
         .rotating {
             animation: spin 0.8s linear infinite;
         }
@@ -628,8 +635,8 @@
                     </div>
                 </section>
 
-                <!-- 2. Email Detail View (Full Viewport Modal for Maximum Readability) -->
-                <article id="emailDetailView" class="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                <!-- 2. Email Detail View (In-workspace Panel) -->
+                <article id="emailDetailView" class="absolute inset-0 z-30 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
                     <header class="shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
                         <div class="flex items-center justify-between gap-3 px-3 sm:px-6 py-2.5 border-b border-slate-100 dark:border-slate-800/80">
                             <button onclick="closeDetail()"
