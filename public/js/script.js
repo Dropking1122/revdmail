@@ -5,8 +5,9 @@ let pollingInterval = null;
 let allMessages = [];
 let availableDomains = [];
 let selectedDomain = '';
+let activeAbortController = null;
 let consecutiveEmptyPolls = 0;
-const EMPTY_POLLS_BEFORE_CLEAR = 3; // require 3 consecutive empty polls before wiping the list
+const EMPTY_POLLS_BEFORE_CLEAR = 3;
 
 // DOM Elements
 const activeEmailDisplay = document.getElementById('activeEmailDisplay');
@@ -41,7 +42,7 @@ async function loadDomainsFromAPI() {
             }
         }
     } catch (err) {
-        console.warn('⚠️ Could not load domains from API:', err);
+        console.warn('⚠️ Gagal memuat daftar domain dari API:', err);
     }
     return false;
 }
@@ -50,7 +51,7 @@ async function initializeDomainSelector() {
     await loadDomainsFromAPI();
 
     if (availableDomains.length === 0) {
-        availableDomains = ['example.com'];
+        availableDomains = ['milmil.web.id'];
     }
 
     const savedDomain = localStorage.getItem('selectedDomain');
@@ -81,8 +82,6 @@ function renderDomainOptions() {
         selectedDomainText.textContent = `@${selectedDomain}`;
     }
     if (!domainOptions) return;
-
-    const isDark = document.documentElement.classList.contains('dark');
 
     domainOptions.innerHTML = '';
     availableDomains.forEach(domain => {
@@ -118,27 +117,51 @@ async function selectDomain(domain) {
     customDomainSelector.classList.remove('active');
     if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
-    showToast(`Switching to @${selectedDomain}…`);
+    showToast(`Beralih ke @${selectedDomain}…`);
     await generateEmail();
 }
 
-// ─── Initialization ───────────────────────────────────────────────────────────
+// ─── Initialization & Lifecycle ───────────────────────────────────────────────
 
 async function init() {
-    const savedEmail = localStorage.getItem('currentEmail');
-    if (savedEmail) {
-        currentEmail = savedEmail;
+    const params = new URLSearchParams(window.location.search);
+    const queryEmail = params.get('email');
+    if (queryEmail && queryEmail.includes('@')) {
+        currentEmail = queryEmail.trim().toLowerCase();
+        localStorage.setItem('currentEmail', currentEmail);
         updateCurrentEmailUI();
         startPolling();
-        showToast(`Accessing ${currentEmail}`);
+        showToast(`Mengakses ${currentEmail}`);
         return;
     }
+
+    const savedEmail = localStorage.getItem('currentEmail');
+    if (savedEmail) {
+        currentEmail = savedEmail.trim().toLowerCase();
+        updateCurrentEmailUI();
+        startPolling();
+        showToast(`Mengakses ${currentEmail}`);
+        return;
+    }
+
     await generateEmail();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
     await initializeDomainSelector();
     await init();
+});
+
+// Pause polling when browser tab is inactive to save battery and network
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopPolling();
+    } else {
+        if (currentEmail) {
+            fetchMessages();
+            startPolling();
+        }
+    }
 });
 
 // ─── API Calls ────────────────────────────────────────────────────────────────
@@ -149,29 +172,39 @@ async function generateEmail() {
     if (isGenerating) return;
     isGenerating = true;
 
+    if (activeAbortController) {
+        activeAbortController.abort();
+    }
+
     try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/create?domain=${encodeURIComponent(selectedDomain)}`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: selectedDomain })
+        });
         const data = await res.json();
 
         if (!res.ok) {
-            showToast(data.error || 'Failed to generate email');
+            showToast(data.error || 'Gagal membuat alamat email.');
             return;
         }
 
         if (data.email) {
-            currentEmail = data.email;
+            currentEmail = data.email.toLowerCase();
             localStorage.setItem('currentEmail', currentEmail);
             allMessages = [];
             consecutiveEmptyPolls = 0;
             filterAndRender();
             updateCurrentEmailUI();
             startPolling();
-            showToast(`New address ready!`);
+            showToast('Alamat baru siap digunakan!');
         }
     } catch (err) {
-        console.error('❌ Error creating email:', err);
-        showToast('Error creating email');
+        if (err.name !== 'AbortError') {
+            console.error('❌ Error creating email:', err);
+            showToast('Gagal membuat alamat email.');
+        }
     } finally {
         isGenerating = false;
         setLoading(false);
@@ -181,56 +214,66 @@ async function generateEmail() {
 async function fetchMessages() {
     if (!currentEmail) return;
 
+    if (activeAbortController) {
+        activeAbortController.abort();
+    }
+    activeAbortController = new AbortController();
+    const queryEmail = currentEmail;
+
     try {
-        const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`);
+        const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(queryEmail)}`, {
+            signal: activeAbortController.signal
+        });
 
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            showToast(err.error || 'Failed to fetch messages');
+            showToast(err.error || 'Gagal memeriksa pesan.');
             return;
         }
 
         const data = await res.json();
 
-        if (data.error) {
-            // IMAP transient error — don't wipe existing messages
-            console.warn('API error:', data.error);
-            return;
-        }
+        // Check if user changed email while request was awaiting
+        if (currentEmail !== queryEmail) return;
 
         if (Array.isArray(data.messages)) {
             if (data.messages.length > 0) {
-                // Got real messages — update and reset the empty-poll counter
                 consecutiveEmptyPolls = 0;
                 allMessages = data.messages;
                 filterAndRender();
             } else {
-                // Empty result — could be IMAP reconnect race condition.
-                // Only clear the list after EMPTY_POLLS_BEFORE_CLEAR consecutive
-                // empty responses to avoid a transient reconnect wiping messages.
                 consecutiveEmptyPolls++;
                 if (consecutiveEmptyPolls >= EMPTY_POLLS_BEFORE_CLEAR) {
                     allMessages = [];
                     filterAndRender();
                 }
-                // else: keep showing the previous messages until confirmed empty
             }
         }
     } catch (err) {
-        console.error('❌ Error fetching messages:', err);
+        if (err.name !== 'AbortError') {
+            console.warn('Gagal memuat pesan:', err.message);
+        }
     }
 }
 
 async function deleteCurrentEmail() {
     if (!currentEmail) return;
 
-    if (!confirm(`Delete ${currentEmail}?\n\nYou will get a new random address.`)) return;
+    if (!confirm(`Hapus alamat ${currentEmail}?\n\nAlamat baru akan dibuat secara otomatis.`)) {
+        return;
+    }
+
+    if (activeAbortController) {
+        activeAbortController.abort();
+    }
 
     try {
-        const res = await fetch(`${API_BASE}/delete?email=${encodeURIComponent(currentEmail)}`, { method: 'DELETE' });
+        const res = await fetch(`${API_BASE}/delete?email=${encodeURIComponent(currentEmail)}`, {
+            method: 'DELETE'
+        });
 
         if (res.ok) {
-            showToast('Email deleted');
+            showToast('Alamat berhasil dibersihkan.');
             currentEmail = null;
             allMessages = [];
             localStorage.removeItem('currentEmail');
@@ -239,18 +282,18 @@ async function deleteCurrentEmail() {
             updateCurrentEmailUI();
             await generateEmail();
         } else {
-            showToast('Failed to delete');
+            showToast('Gagal menghapus alamat.');
         }
     } catch (err) {
-        console.error('❌ Error deleting:', err);
-        showToast('Error deleting email');
+        console.error('Error deleting:', err);
+        showToast('Terjadi kesalahan saat menghapus.');
     }
 }
 
 // ─── UI Logic ─────────────────────────────────────────────────────────────────
 
 function updateCurrentEmailUI() {
-    const text = currentEmail || 'No Active Email';
+    const text = currentEmail || 'Tidak Ada Email Aktif';
 
     if (currentEmailText) currentEmailText.textContent = text;
 
@@ -269,6 +312,7 @@ function filterAndRender() {
         ? allMessages.filter(msg =>
             (msg.subject || '').toLowerCase().includes(query) ||
             (msg.from || '').toLowerCase().includes(query) ||
+            (msg.from_email || '').toLowerCase().includes(query) ||
             (msg.text || '').toLowerCase().includes(query)
           )
         : allMessages;
@@ -281,14 +325,28 @@ function renderEmailList(messages) {
 
     emailListContainer.innerHTML = '';
 
+    const countBadge = document.getElementById('msgCount');
+    if (countBadge) {
+        if (messages && messages.length > 0) {
+            countBadge.textContent = messages.length;
+            countBadge.classList.remove('hidden');
+        } else {
+            countBadge.classList.add('hidden');
+        }
+    }
+
     if (!messages || messages.length === 0) {
-        emptyState && emptyState.classList.replace('opacity-0', 'opacity-100');
-        emptyState && emptyState.classList.remove('pointer-events-none');
+        if (emptyState) {
+            emptyState.classList.replace('opacity-0', 'opacity-100');
+            emptyState.classList.remove('pointer-events-none');
+        }
         return;
     }
 
-    emptyState && emptyState.classList.replace('opacity-100', 'opacity-0');
-    emptyState && emptyState.classList.add('pointer-events-none');
+    if (emptyState) {
+        emptyState.classList.replace('opacity-100', 'opacity-0');
+        emptyState.classList.add('pointer-events-none');
+    }
 
     const sorted = [...messages].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -303,7 +361,7 @@ function renderEmailList(messages) {
                 <div class="sender-avatar-sm">${escapeHtml((msg.from || 'U').charAt(0).toUpperCase())}</div>
                 <div class="flex flex-col min-w-0">
                     <span class="font-semibold text-slate-900 dark:text-white truncate text-sm group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${escapeHtml(msg.from || 'Unknown')}</span>
-                    <span class="text-sm text-slate-600 dark:text-slate-300 truncate font-medium">${escapeHtml(msg.subject || '(No Subject)')}</span>
+                    <span class="text-sm text-slate-600 dark:text-slate-300 truncate font-medium">${escapeHtml(msg.subject || '(Tidak Ada Subjek)')}</span>
                     <span class="text-xs text-slate-400 dark:text-slate-500 truncate">${escapeHtml(msg.text ? msg.text.substring(0, 80) : '')}</span>
                 </div>
             </div>
@@ -323,7 +381,7 @@ function renderEmailList(messages) {
 function openDetail(msg) {
     detailView.classList.add('active');
 
-    detailSubject.textContent = msg.subject || '(No Subject)';
+    detailSubject.textContent = msg.subject || '(Tidak Ada Subjek)';
 
     let senderName = msg.from || 'Unknown';
     if (senderName.includes('<')) {
@@ -335,20 +393,52 @@ function openDetail(msg) {
 
     const date = new Date(msg.date);
     const opts = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-    detailDate.textContent = isNaN(date) ? '' : date.toLocaleDateString('en-GB', opts);
+    detailDate.textContent = isNaN(date) ? '' : date.toLocaleDateString('id-ID', opts);
 
     const recipientEl = document.getElementById('detailRecipient');
     if (recipientEl) recipientEl.textContent = currentEmail || '';
 
     senderAvatar.textContent = (msg.from || 'U').charAt(0).toUpperCase();
 
+    // Secure HTML isolation using a sandboxed iframe
     if (msg.html) {
-        detailBody.innerHTML = sanitizeHtml(msg.html);
+        const clean = (typeof DOMPurify !== 'undefined')
+            ? DOMPurify.sanitize(msg.html, {
+                FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+                ADD_ATTR: ['target']
+            })
+            : msg.html;
+
+        const iframe = document.createElement('iframe');
+        iframe.className = 'w-full h-full border-0 min-h-[480px] bg-white rounded-2xl';
+        iframe.setAttribute('sandbox', 'allow-popups allow-popups-to-escape-sandbox');
+
+        detailBody.innerHTML = '';
+        detailBody.appendChild(iframe);
+
+        iframe.srcdoc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <base target="_blank">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b; margin: 16px; word-break: break-word; }
+                    img { max-width: 100% !important; height: auto !important; }
+                    table { max-width: 100% !important; }
+                    a { color: #2563eb; }
+                </style>
+            </head>
+            <body>
+                ${clean}
+            </body>
+            </html>
+        `;
     } else {
-        detailBody.innerHTML = `<pre class="whitespace-pre-wrap font-sans text-sm">${escapeHtml(msg.text || '(No Content)')}</pre>`;
+        detailBody.innerHTML = `<pre class="whitespace-pre-wrap font-sans text-sm p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl text-slate-800 dark:text-slate-200">${escapeHtml(msg.text || '(Tidak Ada Konten)')}</pre>`;
     }
 
-    // Scroll to top of detail body
     detailBody.scrollTop = 0;
 }
 
@@ -362,7 +452,7 @@ function copyEmail() {
     const text = currentEmail;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text)
-            .then(() => showToast('📋 Address copied!'))
+            .then(() => showToast('📋 Alamat berhasil disalin!'))
             .catch(() => fallbackCopy(text));
     } else {
         fallbackCopy(text);
@@ -378,9 +468,9 @@ function fallbackCopy(text) {
     el.select();
     try {
         document.execCommand('copy');
-        showToast('📋 Address copied!');
+        showToast('📋 Berhasil disalin!');
     } catch {
-        showToast('Could not copy — please copy manually');
+        showToast('Gagal menyalin otomatis, silakan salin manual.');
     }
     document.body.removeChild(el);
 }
@@ -389,11 +479,11 @@ async function refreshInbox() {
     const icon = document.querySelector('#refreshBtn ion-icon');
     if (icon) icon.classList.add('rotating');
 
-    showToast('Checking for new messages…');
+    showToast('Memeriksa pesan masuk…');
     await fetchMessages();
 
     if (icon) icon.classList.remove('rotating');
-    showToast('Inbox updated');
+    showToast('Inbox diperbarui.');
 }
 
 function showToast(message) {
@@ -413,7 +503,7 @@ function setLoading(on) {
     const btn = document.getElementById('generateBtn');
     if (!btn) return;
     const span = btn.querySelector('span');
-    if (span) span.textContent = on ? 'Generating…' : 'New Address';
+    if (span) span.textContent = on ? 'Membuat…' : 'New Address';
     btn.disabled = on;
     btn.classList.toggle('opacity-60', on);
 }
@@ -428,38 +518,6 @@ function escapeHtml(text) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
-}
-
-/**
- * Sanitize HTML email body using DOMPurify (battle-tested allowlist sanitizer)
- * instead of a hand-rolled tag/attribute blocklist. Email HTML is third-party,
- * untrusted content, so this must not rely on a denylist that is easy to miss
- * a vector for (SVG event handlers, <style> based CSS injection, encoded
- * javascript: URIs, etc).
- */
-function sanitizeHtml(html) {
-    if (typeof DOMPurify === 'undefined') {
-        // Fail closed: if the sanitizer library did not load, do not render
-        // untrusted HTML at all.
-        console.error('DOMPurify not loaded — refusing to render email HTML.');
-        return '';
-    }
-
-    const clean = DOMPurify.sanitize(html, {
-        FORBID_TAGS: ['style', 'form', 'input', 'button'],
-        FORBID_ATTR: ['style'],
-        ADD_ATTR: ['target']
-    });
-
-    // Open links in a new tab safely (DOMPurify already strips javascript:/data: URIs)
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = clean;
-    wrapper.querySelectorAll('a').forEach(a => {
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener noreferrer');
-    });
-
-    return wrapper.innerHTML;
 }
 
 function formatTime(dateStr) {
@@ -513,16 +571,18 @@ function closeAccessModal() {
 }
 
 async function accessExistingEmail() {
-    const email = accessEmailInput ? accessEmailInput.value.trim() : '';
+    const email = accessEmailInput ? accessEmailInput.value.trim().toLowerCase() : '';
 
-    if (!email) { showToast('Please enter an email address'); return; }
+    if (!email) { showToast('Masukkan alamat email.'); return; }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) { showToast('Please enter a valid email address'); return; }
+    if (!emailRegex.test(email)) { showToast('Format email tidak valid.'); return; }
 
     const domain = email.split('@')[1];
-    if (!availableDomains.includes(domain)) {
-        showToast(`Domain @${domain} is not supported`);
+    const isGmail = (domain === 'gmail.com' || domain === 'googlemail.com');
+
+    if (!isGmail && !availableDomains.includes(domain)) {
+        showToast(`Domain @${domain} tidak didukung.`);
         return;
     }
 
@@ -535,7 +595,7 @@ async function accessExistingEmail() {
     closeAccessModal();
     stopPolling();
     startPolling();
-    showToast(`Accessing ${email}`);
+    showToast(`Mengakses ${email}`);
 }
 
 if (accessModal) {
@@ -569,36 +629,44 @@ function closeCustomModal() {
 async function generateCustomEmail() {
     const username = customUsernameInput ? customUsernameInput.value.trim() : '';
 
-    if (!username) { showToast('Please enter a username'); return; }
+    if (!username) { showToast('Masukkan username pilihan.'); return; }
     if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-        showToast('Use letters, numbers, dot, dash, or underscore only');
+        showToast('Gunakan huruf, angka, titik, strip, atau underscore saja.');
         return;
     }
 
     closeCustomModal();
 
+    if (activeAbortController) {
+        activeAbortController.abort();
+    }
+
     try {
         setLoading(true);
-        const res = await fetch(
-            `${API_BASE}/create?domain=${encodeURIComponent(selectedDomain)}&username=${encodeURIComponent(username)}`,
-            { method: 'POST' }
-        );
+        const res = await fetch(`${API_BASE}/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: selectedDomain, username })
+        });
         const data = await res.json();
 
-        if (!res.ok) { showToast(data.error || 'Failed to create custom email'); return; }
+        if (!res.ok) { showToast(data.error || 'Gagal membuat alamat kustom.'); return; }
 
         if (data.email) {
-            currentEmail = data.email;
+            currentEmail = data.email.toLowerCase();
             localStorage.setItem('currentEmail', currentEmail);
             allMessages = [];
+            consecutiveEmptyPolls = 0;
             filterAndRender();
             updateCurrentEmailUI();
             startPolling();
-            showToast(`Created ${currentEmail}`);
+            showToast(`Dibuat: ${currentEmail}`);
         }
     } catch (err) {
-        console.error('Error creating custom email:', err);
-        showToast('Error creating email');
+        if (err.name !== 'AbortError') {
+            console.error('Error creating custom email:', err);
+            showToast('Gagal membuat alamat kustom.');
+        }
     } finally {
         setLoading(false);
     }
@@ -630,8 +698,7 @@ document.addEventListener('click', e => {
 const generateBtn = document.getElementById('generateBtn');
 if (generateBtn) generateBtn.addEventListener('click', generateEmail);
 
-// ─── Expose to window for onclick handlers ────────────────────────────────────
-
+// Expose handlers to window
 window.generateEmail = generateEmail;
 window.openCustomModal = openCustomModal;
 window.closeCustomModal = closeCustomModal;
@@ -668,22 +735,22 @@ function closeGmailGeneratorPage() {
 
 async function generateGmailDotVariants() {
     const email = gmailGenInput ? gmailGenInput.value.trim() : '';
-    if (!email) { showToast('Please enter a Gmail address first'); return; }
+    if (!email) { showToast('Masukkan alamat Gmail terlebih dahulu.'); return; }
 
     const btn = document.getElementById('gmailGenBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Memproses…'; }
 
     try {
         const res = await fetch(`${API_BASE}/gmail-generator?email=${encodeURIComponent(email)}`);
         const data = await res.json();
 
-        if (!res.ok) { showToast(data.error || 'Failed to generate variants'); return; }
+        if (!res.ok) { showToast(data.error || 'Gagal menghasilkan variasi.'); return; }
 
         gmailVariantsCache = data.variants || [];
         renderGmailVariants(data.variants, data.truncated, data.total);
     } catch (err) {
         console.error('Gmail generator error:', err);
-        showToast('Something went wrong');
+        showToast('Terjadi kesalahan saat membuat variasi.');
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
     }
@@ -694,17 +761,16 @@ function renderGmailVariants(variants, truncated, total) {
     gmailGenList.innerHTML = '';
 
     if (!variants || variants.length === 0) {
-        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">No variants found.</p>`;
+        gmailGenList.innerHTML = `<p class="text-center text-slate-400 text-sm py-10">Tidak ada variasi yang ditemukan.</p>`;
         if (gmailGenStats) gmailGenStats.classList.add('hidden');
         return;
     }
 
-    // Stats bar
     if (gmailGenStats) gmailGenStats.classList.remove('hidden');
     if (gmailGenCount) {
         gmailGenCount.textContent = truncated
-            ? `Showing 200 of ${total} variants`
-            : `${total} variants found`;
+            ? `Menampilkan ${variants.length} dari ${total} variasi`
+            : `${total} variasi berhasil dibuat`;
     }
 
     variants.forEach((v, idx) => {
@@ -715,13 +781,10 @@ function renderGmailVariants(variants, truncated, total) {
             <span class="text-xs font-bold text-slate-300 dark:text-slate-600 w-7 text-right shrink-0">${idx + 1}</span>
             <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate font-mono">${escapeHtml(v)}</span>
             <div class="flex items-center gap-1 shrink-0">
-                <button data-email="${escapeHtml(v)}" title="Salin"
-                    class="copy-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
-                    <ion-icon name="copy-outline" class="text-base pointer-events-none"></ion-icon>
-                </button>
-                <button data-email="${escapeHtml(v)}" title="Use this address"
-                    class="use-variant-btn w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-slate-700 transition-all opacity-0 group-hover:opacity-100">
-                    <ion-icon name="checkmark-circle-outline" class="text-base pointer-events-none"></ion-icon>
+                <button data-email="${escapeHtml(v)}" title="Salin Alamat"
+                    class="copy-variant-btn px-2.5 py-1.5 flex items-center gap-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-600 transition-all">
+                    <ion-icon name="copy-outline" class="text-sm pointer-events-none"></ion-icon>
+                    <span>Salin</span>
                 </button>
             </div>
         `;
@@ -729,39 +792,21 @@ function renderGmailVariants(variants, truncated, total) {
         gmailGenList.appendChild(row);
     });
 
-    // Event delegation — one listener for the whole list
     gmailGenList.onclick = (e) => {
         const copyBtn = e.target.closest('.copy-variant-btn');
-        const useBtn  = e.target.closest('.use-variant-btn');
-
         if (copyBtn) {
             const addr = copyBtn.dataset.email;
             navigator.clipboard?.writeText(addr).catch(() => fallbackCopy(addr));
-            showToast(`📋 ${addr} copied!`);
-        } else if (useBtn) {
-            useGmailVariant(useBtn.dataset.email);
+            showToast(`📋 ${addr} berhasil disalin!`);
         }
     };
-}
-
-function useGmailVariant(email) {
-    currentEmail = email;
-    localStorage.setItem('currentEmail', email);
-    allMessages = [];
-    consecutiveEmptyPolls = 0;
-    filterAndRender();
-    updateCurrentEmailUI();
-    stopPolling();
-    startPolling();
-    closeGmailGeneratorPage();
-    showToast(`✅ Now using ${email}`);
 }
 
 function copyAllGmailVariants() {
     if (!gmailVariantsCache.length) return;
     const text = gmailVariantsCache.join('\n');
     navigator.clipboard?.writeText(text)
-        .then(() => showToast(`📋 ${gmailVariantsCache.length} addresses copied!`))
+        .then(() => showToast(`📋 ${gmailVariantsCache.length} alamat berhasil disalin!`))
         .catch(() => fallbackCopy(text));
 }
 
@@ -769,12 +814,12 @@ if (gmailGenInput) {
     gmailGenInput.addEventListener('keydown', e => { if (e.key === 'Enter') generateGmailDotVariants(); });
 }
 
-window.openGmailGeneratorPage  = openGmailGeneratorPage;
+window.openGmailGeneratorPage = openGmailGeneratorPage;
 window.closeGmailGeneratorPage = closeGmailGeneratorPage;
 window.generateGmailDotVariants = generateGmailDotVariants;
-window.copyAllGmailVariants     = copyAllGmailVariants;
+window.copyAllGmailVariants = copyAllGmailVariants;
 
-// ─── About Page ───────────────────────────────────────────────────────────────
+// ─── About & Donasi Pages ─────────────────────────────────────────────────────
 
 function closeAllOverlayPages() {
     document.getElementById('aboutPage')?.classList.remove('active');
@@ -792,11 +837,6 @@ function closeAboutPage() {
     document.getElementById('aboutPage')?.classList.remove('active');
     document.getElementById('mainCard')?.classList.remove('about-active');
 }
-
-window.openAboutPage  = openAboutPage;
-window.closeAboutPage = closeAboutPage;
-
-// ─── Donasi Page ──────────────────────────────────────────────────────────────
 
 function openDonasiPage() {
     closeAllOverlayPages();
@@ -819,6 +859,8 @@ function copyRek(elId, btn) {
     setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-green-600', '!bg-green-50'); }, 2000);
 }
 
+window.openAboutPage  = openAboutPage;
+window.closeAboutPage = closeAboutPage;
 window.openDonasiPage  = openDonasiPage;
 window.closeDonasiPage = closeDonasiPage;
 window.copyRek         = copyRek;

@@ -1,135 +1,203 @@
 const { generateRandomPrefix } = require('../utils/nameGenerator');
 const imapService = require('../services/imapService');
-const { fetchRecentRaw } = imapService;
 const { generateGmailVariants } = require('../utils/gmailVariants');
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
 function getAvailableDomains() {
     const domainsEnv = process.env.AVAILABLE_DOMAINS;
     if (domainsEnv) {
-        return domainsEnv.split(',').map(d => d.trim()).filter(d => d.length > 0);
+        return domainsEnv.split(',').map(d => d.trim().toLowerCase()).filter(d => d.length > 0);
     }
     return ['milmil.web.id'];
 }
 
+function isEmailAllowed(email) {
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+        return { valid: false, reason: 'Format email tidak valid.' };
+    }
+
+    const lower = email.trim().toLowerCase();
+    const parts = lower.split('@');
+    if (parts.length !== 2) {
+        return { valid: false, reason: 'Format email tidak valid.' };
+    }
+
+    const [localPart, domain] = parts;
+    const isGmail = (domain === 'gmail.com' || domain === 'googlemail.com');
+
+    if (isGmail) {
+        const imapUser = (process.env.IMAP_USER || '').toLowerCase().trim();
+        const [imapLocal, imapDomain] = imapUser.split('@');
+
+        if (imapDomain !== 'gmail.com' && imapDomain !== 'googlemail.com') {
+            return { valid: false, reason: 'Varian Gmail hanya didukung jika IMAP server dikonfigurasi menggunakan Gmail.' };
+        }
+
+        // Only allow Gmail variants of the configured IMAP user (strip dots)
+        const targetClean = localPart.replace(/\./g, '');
+        const serverClean = (imapLocal || '').replace(/\./g, '');
+        if (targetClean !== serverClean) {
+            return { valid: false, reason: 'Hanya varian Gmail dari alamat sistem yang diizinkan untuk diakses di web ini.' };
+        }
+        return { valid: true, email: lower };
+    }
+
+    const allowedDomains = getAvailableDomains();
+    if (!allowedDomains.includes(domain)) {
+        return { valid: false, reason: `Domain @${domain} tidak didukung. Domain tersedia: ${allowedDomains.join(', ')}` };
+    }
+
+    return { valid: true, email: lower };
+}
+
 async function createEmail(req, res) {
-    const availableDomains = getAvailableDomains();
-    const domainName = req.query.domain || availableDomains[0];
-    const customUser = req.query.username;
+    try {
+        const availableDomains = getAvailableDomains();
+        const rawDomain = req.body?.domain || req.query?.domain || availableDomains[0];
+        const rawUser = req.body?.username || req.query?.username;
 
-    if (!domainName) {
-        return res.status(500).json({ error: "No domain configured." });
-    }
+        const domainName = String(rawDomain || '').trim().toLowerCase();
 
-    if (!availableDomains.includes(domainName)) {
-        return res.status(400).json({
-            error: `Domain ${domainName} is not available. Available: ${availableDomains.join(', ')}`
-        });
-    }
-
-    let prefix;
-    if (customUser) {
-        if (!/^[a-zA-Z0-9._-]+$/.test(customUser)) {
-            return res.status(400).json({ error: "Invalid username. Use letters, numbers, dot, underscore or hyphen." });
+        if (!domainName) {
+            return res.status(500).json({ error: 'Tidak ada domain yang terkonfigurasi.' });
         }
-        if (customUser.length > 64) {
-            return res.status(400).json({ error: "Username too long (max 64 characters)." });
-        }
-        prefix = customUser;
-    } else {
-        prefix = generateRandomPrefix();
-    }
 
-    return res.json({ email: `${prefix}@${domainName}`, expires_at: null });
+        if (!availableDomains.includes(domainName)) {
+            return res.status(400).json({
+                error: `Domain @${domainName} tidak tersedia. Domain yang didukung: ${availableDomains.join(', ')}`
+            });
+        }
+
+        let prefix;
+        if (rawUser) {
+            const customUser = String(rawUser).trim();
+            if (!USERNAME_REGEX.test(customUser)) {
+                return res.status(400).json({ error: 'Username hanya boleh berisi huruf, angka, titik, underscore, atau tanda hubung.' });
+            }
+            if (customUser.length > 64) {
+                return res.status(400).json({ error: 'Username terlalu panjang (maksimal 64 karakter).' });
+            }
+            prefix = customUser;
+        } else {
+            prefix = generateRandomPrefix();
+        }
+
+        const email = `${prefix}@${domainName}`.toLowerCase();
+        return res.json({ email, expires_at: null });
+    } catch (err) {
+        console.error('createEmail error:', err);
+        return res.status(500).json({ error: 'Gagal membuat alamat email baru.' });
+    }
 }
 
 async function deleteEmail(req, res) {
-    const emailToRemove = req.query.email;
-    if (!emailToRemove) {
-        return res.status(400).json({ error: "Missing email parameter" });
-    }
+    try {
+        const rawEmail = req.body?.email || req.query?.email;
+        if (!rawEmail || typeof rawEmail !== 'string') {
+            return res.status(400).json({ error: 'Parameter email wajib disertakan.' });
+        }
 
-    // Enforce allowed domains
-    const allowedDomains = getAvailableDomains();
-    const emailDomain = emailToRemove.split('@')[1] || '';
-    if (!allowedDomains.includes(emailDomain)) {
-        return res.status(403).json({ error: `Domain @${emailDomain} is not allowed.` });
-    }
+        const check = isEmailAllowed(rawEmail);
+        if (!check.valid) {
+            return res.status(403).json({ error: check.reason });
+        }
 
-    // There is no per-address store on the server (addresses are just strings
-    // backed by a shared IMAP mailbox), so nothing is actually deleted server
-    // side. Say so honestly instead of claiming an action that did not happen.
-    return res.json({
-        message: `${emailToRemove} cleared from this session. Mail already delivered to the shared mailbox is not deleted.`
-    });
+        return res.json({
+            message: `Alamat ${check.email} telah dibersihkan dari sesi ini.`
+        });
+    } catch (err) {
+        console.error('deleteEmail error:', err);
+        return res.status(500).json({ error: 'Gagal menghapus alamat email.' });
+    }
 }
 
 async function getMessages(req, res) {
-    const tempEmail = req.query.email;
-
-    if (!tempEmail) {
-        return res.status(400).json({ error: "Missing email parameter" });
-    }
-
-    const emailDomain = tempEmail.split('@')[1] || '';
-
-    // Allow Gmail variants when IMAP is configured against a Gmail account
-    const isGmailVariant = (emailDomain === 'gmail.com' || emailDomain === 'googlemail.com');
-    if (isGmailVariant) {
-        const imapUser = process.env.IMAP_USER || '';
-        const imapDomain = imapUser.split('@')[1] || '';
-        if (imapDomain !== 'gmail.com' && imapDomain !== 'googlemail.com') {
-            return res.status(403).json({ error: 'Gmail variants require Gmail IMAP configuration.' });
+    try {
+        const rawEmail = req.query?.email;
+        if (!rawEmail || typeof rawEmail !== 'string') {
+            return res.status(400).json({ error: 'Parameter email wajib disertakan.' });
         }
-    } else {
-        // Standard domain enforcement for custom domains
-        const allowedDomains = getAvailableDomains();
-        if (!allowedDomains.includes(emailDomain)) {
-            return res.status(403).json({ error: `Domain @${emailDomain} is not allowed.` });
+
+        const check = isEmailAllowed(rawEmail);
+        if (!check.valid) {
+            return res.status(403).json({ error: check.reason });
         }
+
+        const { messages, error } = await imapService.fetchImapMessages(check.email);
+
+        if (error) {
+            console.error(`IMAP fetch error for ${check.email}:`, error);
+            return res.status(503).json({ error: 'Mailbox sementara tidak dapat dihubungi. Silakan coba kembali.' });
+        }
+
+        return res.json({ messages });
+    } catch (err) {
+        console.error('getMessages error:', err);
+        return res.status(500).json({ error: 'Terjadi kesalahan internal saat mengambil pesan.' });
     }
+}
 
-    const { messages, error } = await imapService.fetchImapMessages(tempEmail);
+async function getMessageDetail(req, res) {
+    try {
+        const uid = parseInt(req.params.id, 10);
+        if (isNaN(uid) || uid <= 0) {
+            return res.status(400).json({ error: 'ID pesan tidak valid.' });
+        }
 
-    if (error) {
-        // Log the real cause server side, but don't leak IMAP host/auth
-        // internals to the client.
-        console.error(`IMAP fetch error for ${tempEmail}:`, error);
-        return res.status(503).json({ error: 'Mailbox temporarily unavailable, please retry.' });
+        const rawEmail = req.query?.email;
+        if (!rawEmail || typeof rawEmail !== 'string') {
+            return res.status(400).json({ error: 'Parameter email wajib disertakan.' });
+        }
+
+        const check = isEmailAllowed(rawEmail);
+        if (!check.valid) {
+            return res.status(403).json({ error: check.reason });
+        }
+
+        const { message, error } = await imapService.fetchMessageDetail(uid, check.email);
+
+        if (error) {
+            return res.status(404).json({ error: 'Pesan tidak ditemukan atau tidak dapat dimuat.' });
+        }
+
+        return res.json({ message });
+    } catch (err) {
+        console.error('getMessageDetail error:', err);
+        return res.status(500).json({ error: 'Terjadi kesalahan saat memuat detail pesan.' });
     }
-
-    res.json({ messages });
 }
 
 async function gmailGenerator(req, res) {
-    const { email } = req.query;
-    if (!email) return res.status(400).json({ error: 'Missing email parameter' });
+    try {
+        const rawEmail = req.query?.email;
+        if (!rawEmail || typeof rawEmail !== 'string') {
+            return res.status(400).json({ error: 'Parameter email wajib disertakan.' });
+        }
 
-    const { variants, truncated } = generateGmailVariants(email);
-    if (variants.length === 0) {
-        return res.status(400).json({ error: 'Invalid Gmail address. Only gmail.com / googlemail.com supported.' });
+        const { variants, truncated, total } = generateGmailVariants(rawEmail);
+        if (variants.length === 0) {
+            return res.status(400).json({ error: 'Alamat Gmail tidak valid. Hanya domain gmail.com / googlemail.com yang didukung.' });
+        }
+
+        return res.json({ variants, truncated, total });
+    } catch (err) {
+        console.error('gmailGenerator error:', err);
+        return res.status(500).json({ error: 'Gagal menghasilkan variasi Gmail.' });
     }
-
-    res.json({ variants, truncated, total: variants.length });
 }
 
 async function getDomains(req, res) {
     const domains = getAvailableDomains();
-    res.json({ domains });
+    return res.json({ domains });
 }
 
-async function debugEmails(req, res) {
-    // Dumps raw headers (subject, from, to, delivered-to, x-original-to) from
-    // the shared mailbox across ALL users of this app, with no filtering by
-    // address and no authentication. This must never be reachable in
-    // production — it was a developer-only tool for inspecting how forwarded
-    // mail headers look, not a public API.
-    if (process.env.NODE_ENV === 'production') {
-        return res.status(404).end();
-    }
-
-    const limit = Math.min(parseInt(req.query.limit || '5'), 20);
-    const recent = await fetchRecentRaw(limit);
-    res.json({ recent });
-}
-
-module.exports = { createEmail, deleteEmail, getMessages, getDomains, debugEmails, gmailGenerator };
+module.exports = {
+    createEmail,
+    deleteEmail,
+    getMessages,
+    getMessageDetail,
+    getDomains,
+    gmailGenerator
+};

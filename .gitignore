@@ -1,7 +1,23 @@
-node_modules/
+# Environment variables & secrets
 .env
-.env.*
-!.env.example
-*.bak
-.DS_Store
+.env.local
+.env.*.local
+
+# Node modules & dependencies
+node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs & runtime data
+*.log
+logs/
+.pm2/
+
+# OS & Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
