@@ -251,18 +251,15 @@ function renderDomainOptions() {
 }
 
 async function selectDomain(domain) {
-    if (domain === selectedDomain) {
-        if (customDomainSelector) customDomainSelector.classList.remove('active');
-        if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
-        return;
-    }
+    if (domainOptions) domainOptions.classList.add('hidden');
+    if (mobileDomainOptions) mobileDomainOptions.classList.add('hidden');
+    if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
+
+    if (domain === selectedDomain) return;
 
     selectedDomain = domain;
     localStorage.setItem('selectedDomain', selectedDomain);
     renderDomainOptions();
-
-    if (customDomainSelector) customDomainSelector.classList.remove('active');
-    if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
     showToast(`Domain beralih ke @${selectedDomain}`, 'info');
     await generateEmail(true);
@@ -929,7 +926,7 @@ function toggleSidebar(forceState) {
 
 function initTheme() {
     const saved = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isDark = saved === 'dark' || (!saved && prefersDark);
     applyTheme(isDark);
 }
@@ -938,59 +935,53 @@ function applyTheme(isDark) {
     const html = document.documentElement;
     const themeIcon = document.getElementById('themeIcon');
     const mobileThemeIcon = document.getElementById('mobileThemeIcon');
+    const desktopThemeIcon = document.getElementById('desktopThemeIcon');
 
     if (isDark) {
         html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
         if (themeIcon) themeIcon.setAttribute('name', 'sunny-outline');
         if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'sunny-outline');
-        localStorage.setItem('theme', 'dark');
+        if (desktopThemeIcon) desktopThemeIcon.setAttribute('name', 'sunny-outline');
     } else {
         html.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
         if (themeIcon) themeIcon.setAttribute('name', 'moon-outline');
         if (mobileThemeIcon) mobileThemeIcon.setAttribute('name', 'moon-outline');
-        localStorage.setItem('theme', 'light');
+        if (desktopThemeIcon) desktopThemeIcon.setAttribute('name', 'moon-outline');
     }
 }
 
-function toggleTheme() {
+window.toggleTheme = function () {
     const isDark = document.documentElement.classList.contains('dark');
     applyTheme(!isDark);
-}
-
-const themeBtn = document.getElementById('themeToggle');
-if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
-
-const mobileThemeBtn = document.getElementById('mobileThemeToggle');
-if (mobileThemeBtn) mobileThemeBtn.addEventListener('click', toggleTheme);
+};
 
 initTheme();
 
 // ─── DROPDOWNS & ACTIONS ─────────────────────────────────────────────────────
 
-function toggleMobileDomainDropdown(e) {
+window.toggleMobileDomainDropdown = function (e) {
     if (e) e.stopPropagation();
+    if (domainOptions) domainOptions.classList.add('hidden');
     if (mobileDomainOptions) {
         mobileDomainOptions.classList.toggle('hidden');
     }
-}
+};
 
-if (domainTrigger && customDomainSelector) {
-    domainTrigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = customDomainSelector.classList.contains('active');
-        if (isOpen) {
-            customDomainSelector.classList.remove('active');
-            domainTrigger.setAttribute('aria-expanded', 'false');
-        } else {
-            customDomainSelector.classList.add('active');
-            domainTrigger.setAttribute('aria-expanded', 'true');
-        }
-    });
-}
+window.toggleDesktopDomainDropdown = function (e) {
+    if (e) e.stopPropagation();
+    if (mobileDomainOptions) mobileDomainOptions.classList.add('hidden');
+    if (domainOptions) {
+        domainOptions.classList.toggle('hidden');
+        const isOpen = !domainOptions.classList.contains('hidden');
+        if (domainTrigger) domainTrigger.setAttribute('aria-expanded', String(isOpen));
+    }
+};
 
 document.addEventListener('click', (e) => {
-    if (customDomainSelector && !customDomainSelector.contains(e.target)) {
-        customDomainSelector.classList.remove('active');
+    if (domainOptions && !e.target.closest('#customDomainSelector')) {
+        domainOptions.classList.add('hidden');
         if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
     }
     if (mobileDomainOptions && !e.target.closest('#mobileDomainTrigger')) {
