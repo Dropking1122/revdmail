@@ -522,6 +522,40 @@ async function fetchMessages(isManual = false) {
     }
 }
 
+const READ_STORAGE_KEY = 'revdmail_read_messages';
+
+function getReadMessageIds() {
+    try {
+        const raw = localStorage.getItem(READ_STORAGE_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function getMessageKey(msg) {
+    if (!msg) return '';
+    return String(msg.id || `${msg.date}_${msg.from}_${msg.subject}`);
+}
+
+function isMessageRead(msg) {
+    if (!msg) return false;
+    return getReadMessageIds().has(getMessageKey(msg));
+}
+
+function markMessageAsRead(msg) {
+    if (!msg) return;
+    const key = getMessageKey(msg);
+    const set = getReadMessageIds();
+    if (!set.has(key)) {
+        set.add(key);
+        try {
+            const arr = Array.from(set).slice(-500);
+            localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(arr));
+        } catch {}
+    }
+}
+
 function getShortSnippet(msg, maxChars = 65) {
     const raw = (msg.intro || msg.text || '').replace(/\s+/g, ' ').trim();
     if (!raw) return 'Tidak ada pratinjau teks';
@@ -543,13 +577,18 @@ function renderEmailList() {
         )
         : allMessages;
 
+    // Calculate unread count
+    const unreadCount = filtered.filter(m => !isMessageRead(m)).length;
+
     // Update message count badges
     if (sidebarNavCount) {
-        sidebarNavCount.textContent = filtered.length;
-        sidebarNavCount.classList.toggle('hidden', filtered.length === 0);
+        sidebarNavCount.textContent = unreadCount;
+        sidebarNavCount.classList.toggle('hidden', unreadCount === 0);
     }
     if (mobileMsgCountBadge) {
-        mobileMsgCountBadge.textContent = `${filtered.length} Pesan`;
+        mobileMsgCountBadge.textContent = unreadCount > 0 
+            ? `${unreadCount} Baru / ${filtered.length} Pesan`
+            : `${filtered.length} Pesan`;
     }
 
     if (filtered.length === 0) {
@@ -575,33 +614,42 @@ function renderEmailList() {
     emailListContainer.innerHTML = '';
 
     filtered.forEach(msg => {
+        const isRead = isMessageRead(msg);
         const card = document.createElement('div');
-        card.className = 'email-inbox-card group relative flex items-start gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl hover:shadow-xs cursor-pointer transition-all active:scale-[0.99]';
+        card.className = `email-inbox-card ${isRead ? 'is-read' : 'unread'} group relative flex items-start gap-2.5 sm:gap-3 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl cursor-pointer transition-all active:scale-[0.99]`;
 
         const senderName = parseSenderName(msg.from);
-        const senderEmail = parseSenderEmail(msg.from);
-        const initial = (senderName || 'A').charAt(0).toUpperCase();
         const dateStr = formatDate(msg.date);
         const otp = extractOTP(msg.subject, msg.text || msg.intro || '');
         const snippet = getShortSnippet(msg, 65);
 
         card.innerHTML = `
-            <div class="email-avatar">
-                ${escapeHtml(initial)}
+            <!-- Read / Unread Status Indicator Dot -->
+            <div class="pt-1 shrink-0">
+                ${isRead ? `
+                    <span class="inline-block w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 opacity-60" title="Pesan Sudah Dibaca"></span>
+                ` : `
+                    <span class="inline-block w-2 h-2 rounded-full bg-primary-500 shadow-xs ring-2 ring-primary-500/25" title="Pesan Baru (Belum Dibaca)"></span>
+                `}
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between gap-2 mb-0.5">
-                    <span class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
-                        ${escapeHtml(senderName)}
-                    </span>
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="${isRead ? 'font-medium text-slate-600 dark:text-slate-400' : 'font-extrabold text-slate-900 dark:text-white'} text-xs sm:text-sm truncate">
+                            ${escapeHtml(senderName)}
+                        </span>
+                        ${!isRead ? `
+                            <span class="text-[9px] font-extrabold bg-primary-100 dark:bg-primary-950 text-primary-700 dark:text-primary-300 px-1.5 py-0.2 rounded font-mono uppercase tracking-wider shrink-0">BARU</span>
+                        ` : ''}
+                    </div>
                     <time class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium whitespace-nowrap">
                         ${escapeHtml(dateStr)}
                     </time>
                 </div>
-                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate mb-1">
+                <div class="text-xs ${isRead ? 'font-normal text-slate-600 dark:text-slate-400' : 'font-bold text-slate-800 dark:text-slate-200'} truncate mb-0.5">
                     ${escapeHtml(msg.subject || '(Tanpa Subjek)')}
                 </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-relaxed">
+                <div class="text-[11px] ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'} truncate leading-relaxed">
                     ${escapeHtml(snippet)}
                 </div>
                 ${otp ? `
@@ -677,6 +725,10 @@ window.copyOTP = async function (code, btn) {
 
 async function openDetail(msg) {
     if (!detailView || !detailSubject || !detailFrom || !detailDate || !detailBody) return;
+
+    // Mark as read immediately and update list & badges
+    markMessageAsRead(msg);
+    renderEmailList();
 
     detailSubject.textContent = msg.subject || '(Tanpa Subjek)';
     detailFrom.textContent = msg.from || 'Pengirim Tidak Diketahui';
