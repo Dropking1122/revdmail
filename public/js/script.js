@@ -999,6 +999,16 @@ function closeAboutPage() {
     if (page) page.classList.remove('active');
 }
 
+function openApiDocsPage() {
+    const page = document.getElementById('apiDocsPage');
+    if (page) page.classList.add('active');
+}
+
+function closeApiDocsPage() {
+    const page = document.getElementById('apiDocsPage');
+    if (page) page.classList.remove('active');
+}
+
 window.copyRek = async function (elementId, btn) {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -1061,6 +1071,7 @@ function closeAllPanels() {
     closeGmailGeneratorPage();
     closeDonasiPage();
     closeAboutPage();
+    closeApiDocsPage();
 }
 
 // ─── SIDEBAR & THEME HELPERS ─────────────────────────────────────────────────
@@ -1459,11 +1470,10 @@ window.openDonasiPage = openDonasiPage;
 window.closeDonasiPage = closeDonasiPage;
 window.openAboutPage = openAboutPage;
 window.closeAboutPage = closeAboutPage;
-window.copyNumber = copyNumber;
+window.openApiDocsPage = openApiDocsPage;
+window.closeApiDocsPage = closeApiDocsPage;
+window.copyNumber = window.copyRek;
 window.openDetail = openDetail;
 window.closeDetail = closeDetail;
-window.copyOtpFromList = copyOtpFromList;
-window.copyDetailOtp = copyDetailOtp;
-window.copyDetailBody = copyDetailBody;
-window.printEmail = printEmail;
+window.copyOtpFromList = window.copyOTP;
 window.closeAllPanels = closeAllPanels;
