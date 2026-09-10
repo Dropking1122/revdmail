@@ -270,6 +270,20 @@
             visibility: visible;
         }
 
+        #accessModal, #customModal {
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+
+        #accessModal.active, #customModal.active {
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+        }
+
+        #accessModal.active > div, #customModal.active > div {
+            transform: scale(1) !important;
+        }
+
         #sidebar {
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -294,7 +308,7 @@
     </style>
 </head>
 
-<body class="flex overflow-hidden text-slate-800 dark:text-slate-100 antialiased font-sans select-none">
+<body class="flex overflow-hidden text-slate-800 dark:text-slate-100 antialiased font-sans">
 
     <!-- Backdrop for Mobile Sidebar -->
     <div id="sidebarBackdrop" onclick="toggleSidebar(false)"
@@ -445,19 +459,23 @@
                     </button>
                 </div>
 
-                <!-- Quick Action Buttons (Single Generate button on mobile) -->
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="generateEmail(true)" class="btn-secondary py-1.5 px-2 text-xs justify-center font-bold">
-                        <ion-icon name="sparkles-outline" class="text-sm text-primary-600 dark:text-primary-400" aria-hidden="true"></ion-icon>
-                        <span>Generate</span>
+                <!-- Quick Action Buttons (4 Buttons: Generate, Akses, Custom, Domain) -->
+                <div class="grid grid-cols-4 gap-1.5 sm:gap-2">
+                    <button onclick="generateEmail(true)" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Generate Email Baru">
+                        <ion-icon name="sparkles-outline" class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true"></ion-icon>
+                        <span class="truncate">Generate</span>
                     </button>
-                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-2 text-xs justify-center font-bold">
-                        <ion-icon name="create-outline" class="text-sm text-slate-500" aria-hidden="true"></ion-icon>
-                        <span>Custom</span>
+                    <button onclick="openAccessModal()" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Akses Email Lama">
+                        <ion-icon name="key-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
+                        <span class="truncate">Akses</span>
+                    </button>
+                    <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-1 sm:px-2 text-xs justify-center font-bold" title="Buat Custom Email">
+                        <ion-icon name="create-outline" class="text-sm text-slate-500 shrink-0" aria-hidden="true"></ion-icon>
+                        <span class="truncate">Custom</span>
                     </button>
                     <div class="relative">
                         <button onclick="toggleMobileDomainDropdown(event)" id="mobileDomainTrigger" type="button"
-                            class="btn-secondary w-full py-1.5 px-2 text-xs justify-center truncate font-bold">
+                            class="btn-secondary w-full py-1.5 px-1 sm:px-2 text-xs justify-center truncate font-bold" title="Pilih Domain">
                             <ion-icon name="globe-outline" class="text-sm text-primary-500 shrink-0" aria-hidden="true"></ion-icon>
                             <span id="mobileSelectedDomainText" class="truncate">Domain</span>
                             <ion-icon name="chevron-down-outline" class="text-xs text-slate-400 shrink-0"></ion-icon>
@@ -500,6 +518,10 @@
                     <button onclick="generateEmail(true)" class="btn-primary py-1.5 px-3 text-xs" title="Generate Email" aria-label="Generate Email baru">
                         <ion-icon name="sparkles-outline" class="text-sm" aria-hidden="true"></ion-icon>
                         <span>Generate Email</span>
+                    </button>
+                    <button onclick="openAccessModal()" class="btn-secondary py-1.5 px-3 text-xs" title="Akses Email" aria-label="Akses email lama">
+                        <ion-icon name="key-outline" class="text-sm text-slate-500" aria-hidden="true"></ion-icon>
+                        <span>Akses Email</span>
                     </button>
                     <button onclick="openCustomModal()" class="btn-secondary py-1.5 px-3 text-xs" title="Custom Email" aria-label="Buat custom email">
                         <ion-icon name="create-outline" class="text-sm" aria-hidden="true"></ion-icon>

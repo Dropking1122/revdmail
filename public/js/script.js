@@ -869,26 +869,44 @@ window.copyRek = async function (elementId, btn) {
 
 function openAccessModal() {
     const m = document.getElementById('accessModal');
-    if (m) m.classList.add('active');
+    if (m) {
+        m.classList.add('active');
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        m.classList.add('opacity-100', 'pointer-events-auto');
+    }
     const input = document.getElementById('accessEmailInput');
-    if (input) setTimeout(() => input.focus(), 50);
+    if (input) setTimeout(() => { input.value = ''; input.focus(); }, 50);
 }
 
 function closeAccessModal() {
     const m = document.getElementById('accessModal');
-    if (m) m.classList.remove('active');
+    if (m) {
+        m.classList.remove('active');
+        m.classList.remove('opacity-100', 'pointer-events-auto');
+        m.classList.add('opacity-0', 'pointer-events-none');
+    }
 }
 
 function openCustomModal() {
     const m = document.getElementById('customModal');
-    if (m) m.classList.add('active');
+    const domainBadge = document.getElementById('customModalDomainBadge');
+    if (domainBadge) domainBadge.textContent = `@${selectedDomain || 'revd.me'}`;
+    if (m) {
+        m.classList.add('active');
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        m.classList.add('opacity-100', 'pointer-events-auto');
+    }
     const input = document.getElementById('customUsernameInput');
-    if (input) setTimeout(() => input.focus(), 50);
+    if (input) setTimeout(() => { input.value = ''; input.focus(); }, 50);
 }
 
 function closeCustomModal() {
     const m = document.getElementById('customModal');
-    if (m) m.classList.remove('active');
+    if (m) {
+        m.classList.remove('active');
+        m.classList.remove('opacity-100', 'pointer-events-auto');
+        m.classList.add('opacity-0', 'pointer-events-none');
+    }
 }
 
 function closeAllPanels() {
@@ -1085,12 +1103,57 @@ function escapeHtml(str) {
         .replace(/'/g, '&#039;');
 }
 
-// ─── INITIALIZATION ───────────────────────────────────────────────────────────
+// ─── INITIALIZATION & GLOBAL BINDINGS ───────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (searchInput) {
         searchInput.addEventListener('input', () => renderEmailList());
     }
+
+    // Modal keyboard shortcuts (Enter to submit, Escape to close)
+    const accessInput = document.getElementById('accessEmailInput');
+    if (accessInput) {
+        accessInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                accessExistingEmail();
+            }
+        });
+    }
+
+    const customInput = document.getElementById('customUsernameInput');
+    if (customInput) {
+        customInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                generateCustomEmail();
+            }
+        });
+    }
+
+    // Close modals on clicking their backdrops
+    const accessModalEl = document.getElementById('accessModal');
+    if (accessModalEl) {
+        accessModalEl.addEventListener('click', (e) => {
+            if (e.target === accessModalEl) closeAccessModal();
+        });
+    }
+
+    const customModalEl = document.getElementById('customModal');
+    if (customModalEl) {
+        customModalEl.addEventListener('click', (e) => {
+            if (e.target === customModalEl) closeCustomModal();
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeAccessModal();
+            closeCustomModal();
+            closeDetail();
+            if (window.setSidebar) setSidebar(false);
+        }
+    });
 
     await initializeDomainSelector();
     await generateEmail(false);
@@ -1103,7 +1166,11 @@ async function initializeDomainSelector() {
         availableDomains = ['revd.me'];
     }
 
-    const savedDomain = localStorage.getItem('selectedDomain');
+    let savedDomain = null;
+    try {
+        savedDomain = localStorage.getItem('selectedDomain');
+    } catch (e) {}
+
     selectedDomain = (savedDomain && availableDomains.includes(savedDomain))
         ? savedDomain
         : availableDomains[0];
@@ -1111,3 +1178,38 @@ async function initializeDomainSelector() {
     renderDomainOptions();
     updateActiveEmailDisplays(currentEmail);
 }
+
+// Explicit global exports for all inline onclick handlers
+window.toggleTheme = toggleTheme;
+window.applyTheme = applyTheme;
+window.openAccessModal = openAccessModal;
+window.closeAccessModal = closeAccessModal;
+window.openCustomModal = openCustomModal;
+window.closeCustomModal = closeCustomModal;
+window.accessExistingEmail = accessExistingEmail;
+window.generateCustomEmail = generateCustomEmail;
+window.generateEmail = generateEmail;
+window.copyEmail = copyEmail;
+window.refreshInbox = refreshInbox;
+window.deleteCurrentEmail = deleteCurrentEmail;
+window.toggleSidebar = toggleSidebar;
+window.setSidebar = setSidebar;
+window.toggleMobileDomainDropdown = toggleMobileDomainDropdown;
+window.toggleDesktopDomainDropdown = toggleDesktopDomainDropdown;
+window.openGmailGeneratorPage = openGmailGeneratorPage;
+window.closeGmailGeneratorPage = closeGmailGeneratorPage;
+window.generateGmailDotVariants = generateGmailDotVariants;
+window.copyGmailVariant = copyGmailVariant;
+window.copyAllGmailVariants = copyAllGmailVariants;
+window.openDonasiPage = openDonasiPage;
+window.closeDonasiPage = closeDonasiPage;
+window.openAboutPage = openAboutPage;
+window.closeAboutPage = closeAboutPage;
+window.copyNumber = copyNumber;
+window.openDetail = openDetail;
+window.closeDetail = closeDetail;
+window.copyOtpFromList = copyOtpFromList;
+window.copyDetailOtp = copyDetailOtp;
+window.copyDetailBody = copyDetailBody;
+window.printEmail = printEmail;
+window.closeAllPanels = closeAllPanels;
