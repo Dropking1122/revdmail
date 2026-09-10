@@ -5,6 +5,7 @@ let allMessages = [];
 let availableDomains = [];
 let selectedDomain = '';
 let activeAbortController = null;
+let isFetchingMessages = false;
 let consecutiveEmptyPolls = 0;
 const EMPTY_POLLS_BEFORE_CLEAR = 3;
 
@@ -140,13 +141,13 @@ function startPolling() {
     setLiveSyncState('active');
 
     countdownTimerId = setInterval(() => {
-        if (!isPollingActive) return;
+        if (!isPollingActive || isFetchingMessages) return;
 
         countdownRemaining--;
         if (countdownRemaining <= 0) {
             countdownRemaining = POLL_INTERVAL_SECONDS;
             updateCountdownUI();
-            fetchMessages();
+            fetchMessages(false);
         } else {
             updateCountdownUI();
         }
@@ -308,8 +309,22 @@ function saveCurrentEmail(email) {
             localStorage.setItem('selectedDomain', selectedDomain);
             renderDomainOptions();
         }
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('email') !== email) {
+                url.searchParams.set('email', email);
+                window.history.replaceState({}, '', url.toString());
+            }
+        } catch (e) {}
     } else {
         localStorage.removeItem('tempEmail');
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('email')) {
+                url.searchParams.delete('email');
+                window.history.replaceState({}, '', url.toString());
+            }
+        } catch (e) {}
     }
     updateActiveEmailDisplays(email);
 }
@@ -446,12 +461,18 @@ async function fetchMessages(isManual = false) {
         return;
     }
 
-    if (activeAbortController) {
-        activeAbortController.abort();
+    if (isFetchingMessages) {
+        if (!isManual) return;
+        if (activeAbortController) {
+            activeAbortController.abort();
+        }
     }
+
+    isFetchingMessages = true;
     activeAbortController = new AbortController();
 
     try {
+        setLiveSyncState('syncing');
         const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`, {
             signal: activeAbortController.signal
         });
@@ -492,6 +513,9 @@ async function fetchMessages(isManual = false) {
         console.warn('Gagal memuat pesan:', err);
         setLiveSyncState('paused');
     } finally {
+        isFetchingMessages = false;
+        countdownRemaining = POLL_INTERVAL_SECONDS;
+        updateCountdownUI();
         showSkeleton(false);
         if (refreshBtn) refreshBtn.classList.remove('rotating');
         if (mobileRefreshBtn) mobileRefreshBtn.classList.remove('rotating');
@@ -1220,7 +1244,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     await initializeDomainSelector();
-    await generateEmail(false);
+
+    const urlEmail = getEmailFromURL();
+    if (urlEmail) {
+        saveCurrentEmail(urlEmail);
+        consecutiveEmptyPolls = 0;
+        allMessages = [];
+        showSkeleton(true);
+        await fetchMessages();
+        startPolling();
+    } else {
+        await generateEmail(false);
+    }
+});
+
+function getEmailFromURL() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        let email = params.get('email') || params.get('mail') || params.get('inbox') || params.get('address');
+        if (email) {
+            email = email.trim().toLowerCase();
+            if (!email.includes('@')) {
+                const defaultDomain = (availableDomains && availableDomains[0]) ? availableDomains[0] : 'revd.me';
+                email = `${email}@${defaultDomain}`;
+            }
+            if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+                return email;
+            }
+        }
+
+        const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+        if (rawHash) {
+            let hashEmail = rawHash;
+            if (hashEmail.startsWith('email=')) {
+                hashEmail = hashEmail.slice(6);
+            }
+            hashEmail = hashEmail.trim().toLowerCase();
+            if (!hashEmail.includes('@')) {
+                const defaultDomain = (availableDomains && availableDomains[0]) ? availableDomains[0] : 'revd.me';
+                hashEmail = `${hashEmail}@${defaultDomain}`;
+            }
+            if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(hashEmail)) {
+                return hashEmail;
+            }
+        }
+    } catch (e) {
+        console.error('Error parsing URL email:', e);
+    }
+    return null;
+}
+
+window.addEventListener('popstate', async () => {
+    const urlEmail = getEmailFromURL();
+    if (urlEmail && urlEmail !== currentEmail) {
+        saveCurrentEmail(urlEmail);
+        consecutiveEmptyPolls = 0;
+        allMessages = [];
+        showSkeleton(true);
+        await fetchMessages();
+        startPolling();
+    }
 });
 
 // Search Popup Controller

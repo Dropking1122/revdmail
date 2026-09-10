@@ -375,8 +375,8 @@ async function fetchImapMessages(tempEmail, limit = 20) {
             }
         }
 
-        // 2. Scan Spam folder
-        if (spam) {
+        // 2. Scan Spam folder only if no messages found yet in primary mailbox
+        if (spam && matchingMessages.size === 0) {
             try { await scanFolderForHeaders(spam); } catch (err) {
                 console.warn(`⚠️ Failed to fetch from Spam (${spam}):`, err.message);
             }
