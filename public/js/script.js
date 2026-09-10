@@ -162,23 +162,39 @@ function stopPolling() {
 }
 
 function setLiveSyncState(state) {
+    const desktopPing = document.getElementById('liveSyncPing');
+    const desktopDot = document.getElementById('liveSyncDot');
+    const desktopBadge = document.getElementById('liveSyncBadge');
+
     if (state === 'active') {
         if (liveSyncText) liveSyncText.textContent = 'Live Sync';
         if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Live Sync';
         if (mobileSyncPing) mobileSyncPing.classList.remove('hidden');
-        if (mobileSyncDot) {
-            mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+        if (desktopPing) desktopPing.classList.remove('hidden');
+        if (mobileSyncDot) mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+        if (desktopDot) desktopDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+        if (desktopBadge) {
+            desktopBadge.textContent = 'Aktif';
+            desktopBadge.className = 'text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold';
         }
     } else if (state === 'paused') {
         if (liveSyncText) liveSyncText.textContent = 'Dijeda';
         if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Dijeda';
         if (mobileSyncPing) mobileSyncPing.classList.add('hidden');
-        if (mobileSyncDot) {
-            mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
+        if (desktopPing) desktopPing.classList.add('hidden');
+        if (mobileSyncDot) mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
+        if (desktopDot) desktopDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
+        if (desktopBadge) {
+            desktopBadge.textContent = 'Dijeda';
+            desktopBadge.className = 'text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold';
         }
     } else if (state === 'syncing') {
         if (liveSyncText) liveSyncText.textContent = 'Sync...';
         if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Sync...';
+        if (desktopBadge) {
+            desktopBadge.textContent = 'Sync...';
+            desktopBadge.className = 'text-[10px] font-mono text-primary-600 dark:text-primary-400 font-bold';
+        }
     }
 }
 
@@ -312,7 +328,6 @@ async function generateEmail(forceNew = false) {
             saveCurrentEmail(saved);
             consecutiveEmptyPolls = 0;
             allMessages = [];
-            renderEmailList();
             showSkeleton(true);
             await fetchMessages();
             startPolling();
@@ -335,7 +350,7 @@ async function generateEmail(forceNew = false) {
             saveCurrentEmail(data.email);
             consecutiveEmptyPolls = 0;
             allMessages = [];
-            renderEmailList();
+            showSkeleton(true);
             showToast(`Email baru siap: ${data.email}`, 'success');
             await fetchMessages();
             startPolling();
@@ -381,7 +396,7 @@ async function generateCustomEmail() {
             saveCurrentEmail(data.email);
             consecutiveEmptyPolls = 0;
             allMessages = [];
-            renderEmailList();
+            showSkeleton(true);
             showToast(`Custom email dibuat: ${data.email}`, 'success');
             await fetchMessages();
             startPolling();
@@ -405,7 +420,6 @@ async function accessExistingEmail() {
     saveCurrentEmail(email);
     consecutiveEmptyPolls = 0;
     allMessages = [];
-    renderEmailList();
     showSkeleton(true);
     showToast(`Beralih ke: ${email}`, 'info');
     await fetchMessages();
@@ -422,6 +436,7 @@ async function refreshInbox() {
     countdownRemaining = POLL_INTERVAL_SECONDS;
     updateCountdownUI();
 
+    showSkeleton(true);
     await fetchMessages(true);
 }
 
@@ -464,6 +479,8 @@ async function fetchMessages(isManual = false) {
             allMessages = incoming;
         }
 
+        // Hide skeleton first, so empty state only displays AFTER skeleton finishes
+        showSkeleton(false);
         renderEmailList();
         setLiveSyncState('active');
 
@@ -483,6 +500,8 @@ async function fetchMessages(isManual = false) {
 
 function renderEmailList() {
     if (!emailListContainer) return;
+
+    const isSkeletonActive = skeletonLoading && !skeletonLoading.classList.contains('hidden');
 
     const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
     const filtered = query
@@ -505,8 +524,14 @@ function renderEmailList() {
     if (filtered.length === 0) {
         emailListContainer.innerHTML = '';
         if (emptyState) {
-            emptyState.classList.remove('opacity-0', 'pointer-events-none');
-            emptyState.classList.add('opacity-100');
+            // Only show empty state if skeleton is NOT active
+            if (!isSkeletonActive) {
+                emptyState.classList.remove('opacity-0', 'pointer-events-none');
+                emptyState.classList.add('opacity-100');
+            } else {
+                emptyState.classList.add('opacity-0', 'pointer-events-none');
+                emptyState.classList.remove('opacity-100');
+            }
         }
         return;
     }
@@ -567,6 +592,20 @@ function renderEmailList() {
 
 function showSkeleton(show) {
     if (skeletonLoading) skeletonLoading.classList.toggle('hidden', !show);
+    if (show) {
+        // While skeleton is active: HIDE empty state and hide list container completely
+        if (emptyState) {
+            emptyState.classList.add('opacity-0', 'pointer-events-none');
+            emptyState.classList.remove('opacity-100');
+        }
+        if (emailListContainer) {
+            emailListContainer.classList.add('hidden');
+        }
+    } else {
+        if (emailListContainer) {
+            emailListContainer.classList.remove('hidden');
+        }
+    }
 }
 
 // ─── OTP EXTRACTION HELPER ───────────────────────────────────────────────────

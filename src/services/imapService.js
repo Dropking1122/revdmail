@@ -382,14 +382,6 @@ async function fetchImapMessages(tempEmail, limit = 20) {
             }
         }
 
-        // Retry once on fresh connection if empty (Gmail index delay)
-        if (matchingMessages.size === 0 && isNew) {
-            console.log('🔄 Fresh connection returned 0 messages — retrying in 2s…');
-            await new Promise(r => setTimeout(r, 2000));
-            try { await scanFolderForHeaders(allMail); } catch (_) {}
-            if (spam) { try { await scanFolderForHeaders(spam); } catch (_) {} }
-        }
-
         // Sort newest first and cap at limit
         const sorted = Array.from(matchingMessages.values())
             .sort((a, b) => new Date(b.date) - new Date(a.date))
