@@ -258,6 +258,21 @@
             border-color: #3b82f6 !important;
         }
 
+        .email-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.875rem;
+            background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+            color: #ffffff !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.875rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
         .mobile-action-btn {
             display: inline-flex;
             align-items: center;
@@ -681,11 +696,6 @@
                     <!-- Delete Session Button on Desktop -->
                     <button onclick="deleteCurrentEmail()" class="icon-btn hover:!text-red-500" title="Hapus Sesi Email" aria-label="Hapus sesi email saat ini">
                         <ion-icon name="trash-outline" class="text-base" aria-hidden="true"></ion-icon>
-                    </button>
-
-                    <!-- Desktop Theme Toggle -->
-                    <button onclick="toggleTheme()" class="icon-btn ml-1" title="Ganti Mode Tampilan" aria-label="Ganti mode terang atau gelap">
-                        <ion-icon id="desktopThemeIcon" name="sunny-outline" class="text-lg" aria-hidden="true"></ion-icon>
                     </button>
                 </div>
 

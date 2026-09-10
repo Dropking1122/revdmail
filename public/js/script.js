@@ -586,7 +586,7 @@ function renderEmailList() {
         const snippet = getShortSnippet(msg, 65);
 
         card.innerHTML = `
-            <div class="w-10 h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-xs">
+            <div class="email-avatar">
                 ${escapeHtml(initial)}
             </div>
             <div class="flex-1 min-w-0">
