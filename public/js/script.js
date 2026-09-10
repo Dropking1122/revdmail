@@ -17,8 +17,12 @@ let countdownInterval = null;
 
 // DOM Elements
 const currentEmailText = document.getElementById('currentEmailText');
-const mobileEmailText = document.getElementById('mobileEmailText');
+const mobileActiveEmail = document.getElementById('mobileActiveEmail');
 const sidebarEmailDisplay = document.getElementById('sidebarEmailDisplay');
+const sidebarMsgCount = document.getElementById('sidebarMsgCount');
+const sidebarNavCount = document.getElementById('sidebarNavCount');
+const sidebarStatusText = document.getElementById('sidebarStatusText');
+const mobileMsgCountBadge = document.getElementById('mobileMsgCountBadge');
 const emailListContainer = document.getElementById('emailList');
 const emptyState = document.getElementById('emptyState');
 const skeletonLoading = document.getElementById('skeletonLoading');
@@ -26,6 +30,8 @@ const customDomainSelector = document.getElementById('customDomainSelector');
 const domainTrigger = document.getElementById('domainTrigger');
 const domainOptions = document.getElementById('domainOptions');
 const selectedDomainText = document.getElementById('selectedDomainText');
+const mobileDomainOptions = document.getElementById('mobileDomainOptions');
+const mobileSelectedDomainText = document.getElementById('mobileSelectedDomainText');
 const detailView = document.getElementById('emailDetailView');
 const detailSubject = document.getElementById('detailSubject');
 const detailSenderName = document.getElementById('detailSenderName');
@@ -37,9 +43,11 @@ const detailBody = document.getElementById('detailBody');
 const detailOtpBanner = document.getElementById('detailOtpBanner');
 const detailOtpCode = document.getElementById('detailOtpCode');
 const searchInput = document.getElementById('searchInput');
-const msgCountBadge = document.getElementById('msgCount');
 const liveSyncStatus = document.getElementById('liveSyncStatus');
 const liveSyncText = document.getElementById('liveSyncText');
+const mobileLiveSyncLabel = document.getElementById('mobileLiveSyncLabel');
+const mobileSyncPing = document.getElementById('mobileSyncPing');
+const mobileSyncDot = document.getElementById('mobileSyncDot');
 
 // ─── OTP / VERIFICATION CODE PARSER ───────────────────────────────────────────
 
@@ -64,14 +72,35 @@ function extractOTP(subject, bodyText) {
     return null;
 }
 
+async function copyToClipboard(text) {
+    if (!text) return false;
+    if (navigator.clipboard && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {}
+    }
+    try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return success;
+    } catch {
+        return false;
+    }
+}
+
 window.copyOTP = async function (code) {
     if (!code) return;
-    try {
-        await navigator.clipboard.writeText(code);
-        showToast(`Kode OTP ${code} berhasil disalin!`, 'success');
-    } catch {
-        showToast(`Kode OTP: ${code}`, 'info');
-    }
+    await copyToClipboard(code);
+    showToast(`Kode OTP ${code} berhasil disalin!`, 'success');
 };
 
 window.copyDetectedOtp = function () {
@@ -88,11 +117,13 @@ function resetCountdown() {
 }
 
 function updateCountdownUI() {
-    const timerLabel = document.getElementById('refreshTimerLabel');
+    const desktopTimer = document.getElementById('refreshTimerLabel');
+    const mobileTimer = document.getElementById('mobileRefreshTimerLabel');
     const progressBar = document.getElementById('refreshProgressBar');
-    if (timerLabel) {
-        timerLabel.textContent = `Perbarui: ${countdownSeconds}s`;
-    }
+
+    if (desktopTimer) desktopTimer.textContent = `Perbarui: ${countdownSeconds}s`;
+    if (mobileTimer) mobileTimer.textContent = `${countdownSeconds}s`;
+
     if (progressBar) {
         const pct = Math.max(0, Math.min(100, (countdownSeconds / 15) * 100));
         progressBar.style.width = `${pct}%`;
@@ -116,6 +147,30 @@ function stopCountdown() {
     if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
+    }
+}
+
+function setLiveSyncState(state) {
+    if (state === 'active') {
+        if (liveSyncText) liveSyncText.textContent = 'Live Sync';
+        if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Live Sync';
+        if (sidebarStatusText) sidebarStatusText.textContent = 'Live Sync';
+        if (mobileSyncPing) mobileSyncPing.classList.remove('hidden');
+        if (mobileSyncDot) {
+            mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
+        }
+    } else if (state === 'paused') {
+        if (liveSyncText) liveSyncText.textContent = 'Dijeda';
+        if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Dijeda';
+        if (sidebarStatusText) sidebarStatusText.textContent = 'Dijeda';
+        if (mobileSyncPing) mobileSyncPing.classList.add('hidden');
+        if (mobileSyncDot) {
+            mobileSyncDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-500';
+        }
+    } else if (state === 'syncing') {
+        if (liveSyncText) liveSyncText.textContent = 'Sinkron...';
+        if (mobileLiveSyncLabel) mobileLiveSyncLabel.textContent = 'Sinkron...';
+        if (sidebarStatusText) sidebarStatusText.textContent = 'Sinkron...';
     }
 }
 
@@ -154,8 +209,10 @@ async function initializeDomainSelector() {
     if (domainTrigger) {
         domainTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
-            customDomainSelector.classList.toggle('active');
-            domainTrigger.setAttribute('aria-expanded', customDomainSelector.classList.contains('active'));
+            if (customDomainSelector) {
+                customDomainSelector.classList.toggle('active');
+                domainTrigger.setAttribute('aria-expanded', customDomainSelector.classList.contains('active'));
+            }
         });
     }
 
@@ -168,41 +225,68 @@ async function initializeDomainSelector() {
 }
 
 function renderDomainOptions() {
-    if (selectedDomainText) {
-        selectedDomainText.textContent = `@${selectedDomain}`;
-    }
-    const customModalDomain = document.getElementById('customModalDomainDisplay');
-    if (customModalDomain) {
-        customModalDomain.textContent = `@${selectedDomain}`;
-    }
-    if (!domainOptions) return;
+    const domainLabel = `@${selectedDomain}`;
+    if (selectedDomainText) selectedDomainText.textContent = domainLabel;
+    if (mobileSelectedDomainText) mobileSelectedDomainText.textContent = domainLabel;
 
-    domainOptions.innerHTML = '';
-    availableDomains.forEach(domain => {
-        const option = document.createElement('button');
-        const isSelected = domain === selectedDomain;
-        option.className = [
-            'w-full text-left px-4 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between',
-            isSelected
-                ? 'bg-primary-600 text-white shadow-sm'
-                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
-        ].join(' ');
-        option.innerHTML = `
-            <span>@${escapeHtml(domain)}</span>
-            ${isSelected ? '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon>' : ''}
-        `;
-        option.setAttribute('type', 'button');
-        option.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectDomain(domain);
+    const customModalDomain = document.getElementById('customModalDomainDisplay');
+    if (customModalDomain) customModalDomain.textContent = domainLabel;
+
+    // Desktop Options
+    if (domainOptions) {
+        domainOptions.innerHTML = '';
+        availableDomains.forEach(domain => {
+            const option = document.createElement('button');
+            const isSelected = domain === selectedDomain;
+            option.className = [
+                'w-full text-left px-4 py-2.5 text-xs font-semibold rounded-xl transition-all flex items-center justify-between',
+                isSelected
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+            ].join(' ');
+            option.innerHTML = `
+                <span>@${escapeHtml(domain)}</span>
+                ${isSelected ? '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon>' : ''}
+            `;
+            option.setAttribute('type', 'button');
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectDomain(domain);
+            });
+            domainOptions.appendChild(option);
         });
-        domainOptions.appendChild(option);
-    });
+    }
+
+    // Mobile Options
+    if (mobileDomainOptions) {
+        mobileDomainOptions.innerHTML = '';
+        availableDomains.forEach(domain => {
+            const option = document.createElement('button');
+            const isSelected = domain === selectedDomain;
+            option.className = [
+                'w-full text-left px-3.5 py-2 text-xs font-semibold transition-all flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 last:border-0',
+                isSelected
+                    ? 'bg-primary-50 dark:bg-primary-950/60 text-primary-600 dark:text-primary-400 font-bold'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/40'
+            ].join(' ');
+            option.innerHTML = `
+                <span>@${escapeHtml(domain)}</span>
+                ${isSelected ? '<ion-icon name="checkmark-outline" class="text-sm"></ion-icon>' : ''}
+            `;
+            option.setAttribute('type', 'button');
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (mobileDomainOptions) mobileDomainOptions.classList.add('hidden');
+                selectDomain(domain);
+            });
+            mobileDomainOptions.appendChild(option);
+        });
+    }
 }
 
 async function selectDomain(domain) {
     if (domain === selectedDomain) {
-        customDomainSelector.classList.remove('active');
+        if (customDomainSelector) customDomainSelector.classList.remove('active');
         if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
         return;
     }
@@ -211,7 +295,7 @@ async function selectDomain(domain) {
     localStorage.setItem('selectedDomain', selectedDomain);
     renderDomainOptions();
 
-    customDomainSelector.classList.remove('active');
+    if (customDomainSelector) customDomainSelector.classList.remove('active');
     if (domainTrigger) domainTrigger.setAttribute('aria-expanded', 'false');
 
     showToast(`Beralih ke domain @${selectedDomain}`, 'info');
@@ -221,9 +305,10 @@ async function selectDomain(domain) {
 // ─── EMAIL DISPLAY & PERSISTENCE ──────────────────────────────────────────────
 
 function updateActiveEmailDisplays(email) {
-    if (currentEmailText) currentEmailText.textContent = email || 'Memuat...';
-    if (mobileEmailText) mobileEmailText.textContent = email || 'Memuat...';
-    if (sidebarEmailDisplay) sidebarEmailDisplay.textContent = email || 'Memuat...';
+    const text = email || 'Memuat alamat...';
+    if (currentEmailText) currentEmailText.textContent = text;
+    if (mobileActiveEmail) mobileActiveEmail.textContent = text;
+    if (sidebarEmailDisplay) sidebarEmailDisplay.textContent = text;
 }
 
 function saveCurrentEmail(email) {
@@ -377,8 +462,11 @@ async function fetchMessages(isManual = false) {
     activeAbortController = new AbortController();
 
     const refreshBtn = document.getElementById('refreshBtn');
+    const mobileRefreshBtn = document.getElementById('mobileRefreshBtn');
     if (refreshBtn) refreshBtn.classList.add('rotating');
-    if (liveSyncText) liveSyncText.textContent = 'Menyinkronkan...';
+    if (mobileRefreshBtn) mobileRefreshBtn.classList.add('rotating');
+
+    setLiveSyncState('syncing');
 
     try {
         const res = await fetch(`${API_BASE}/messages?email=${encodeURIComponent(currentEmail)}`, {
@@ -389,6 +477,7 @@ async function fetchMessages(isManual = false) {
             showToast('Alamat email ditolak oleh server.', 'error');
             stopPolling();
             showSkeleton(false);
+            setLiveSyncState('paused');
             return;
         }
 
@@ -409,16 +498,19 @@ async function fetchMessages(isManual = false) {
 
         renderEmailList();
         resetCountdown();
+        setLiveSyncState('active');
+
         if (isManual) {
             showToast(incoming.length > 0 ? `${incoming.length} pesan ditemukan` : 'Belum ada email baru', 'info');
         }
     } catch (err) {
         if (err.name === 'AbortError') return;
         console.warn('Gagal memuat pesan:', err);
+        setLiveSyncState('paused');
     } finally {
         showSkeleton(false);
         if (refreshBtn) refreshBtn.classList.remove('rotating');
-        if (liveSyncText) liveSyncText.textContent = 'Live Sync';
+        if (mobileRefreshBtn) mobileRefreshBtn.classList.remove('rotating');
     }
 }
 
@@ -434,10 +526,16 @@ function renderEmailList() {
         )
         : allMessages;
 
-    // Update message count badges
-    if (msgCountBadge) {
-        msgCountBadge.textContent = filtered.length;
-        msgCountBadge.classList.toggle('hidden', filtered.length === 0);
+    // Update message count indicators across all touchpoints
+    if (sidebarNavCount) {
+        sidebarNavCount.textContent = filtered.length;
+        sidebarNavCount.classList.toggle('hidden', filtered.length === 0);
+    }
+    if (sidebarMsgCount) {
+        sidebarMsgCount.textContent = filtered.length;
+    }
+    if (mobileMsgCountBadge) {
+        mobileMsgCountBadge.textContent = `${filtered.length} Pesan`;
     }
 
     if (filtered.length === 0) {
@@ -527,7 +625,6 @@ async function openDetail(msg) {
         }
     }
 
-    // Shimmer inside detail while loading full body
     detailBody.innerHTML = `
         <div class="space-y-4 p-4 animate-pulse">
             <div class="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/4"></div>
@@ -638,6 +735,7 @@ window.printEmail = function () {
 function startPolling() {
     stopPolling();
     startCountdown();
+    setLiveSyncState('active');
     pollingInterval = setInterval(() => {
         fetchMessages();
     }, 15000);
@@ -655,10 +753,10 @@ function stopPolling() {
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         stopPolling();
-        if (liveSyncText) liveSyncText.textContent = 'Dijeda';
+        setLiveSyncState('paused');
     } else {
         if (currentEmail) {
-            if (liveSyncText) liveSyncText.textContent = 'Live Sync';
+            setLiveSyncState('active');
             fetchMessages();
             startPolling();
         }
@@ -736,8 +834,9 @@ async function generateGmailDotVariants() {
     }
 }
 
-window.copySingleVariant = function (text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
+window.copySingleVariant = async function (text, btn) {
+    const ok = await copyToClipboard(text);
+    if (ok) {
         showToast(`Alamat ${text} disalin!`, 'success');
         if (btn) {
             const originalText = btn.textContent;
@@ -748,15 +847,16 @@ window.copySingleVariant = function (text, btn) {
                 btn.classList.remove('text-emerald-600');
             }, 1500);
         }
-    });
+    } else {
+        showToast(text, 'info');
+    }
 };
 
-window.copyAllGmailVariants = function () {
+window.copyAllGmailVariants = async function () {
     if (!window.currentGmailVariants || window.currentGmailVariants.length === 0) return;
     const text = window.currentGmailVariants.join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-        showToast(`${window.currentGmailVariants.length} alamat berhasil disalin!`, 'success');
-    });
+    await copyToClipboard(text);
+    showToast(`${window.currentGmailVariants.length} alamat berhasil disalin!`, 'success');
 };
 
 // ─── DONASI & ABOUT PAGES ─────────────────────────────────────────────────────
@@ -781,18 +881,17 @@ function closeAboutPage() {
     if (page) page.classList.remove('active');
 }
 
-window.copyRek = function (elementId, btn) {
+window.copyRek = async function (elementId, btn) {
     const el = document.getElementById(elementId);
     if (!el) return;
     const num = el.textContent.trim();
-    navigator.clipboard.writeText(num).then(() => {
-        showToast(`Nomor ${num} disalin ke clipboard!`, 'success');
-        if (btn) {
-            const original = btn.innerHTML;
-            btn.innerHTML = '<span>Tersalin!</span>';
-            setTimeout(() => { btn.innerHTML = original; }, 1500);
-        }
-    });
+    await copyToClipboard(num);
+    showToast(`Nomor ${num} disalin ke clipboard!`, 'success');
+    if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<span>Tersalin!</span>';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+    }
 };
 
 // ─── MODAL CONTROLS ───────────────────────────────────────────────────────────
@@ -857,13 +956,27 @@ function showToast(message, type = 'info') {
 
 // ─── UTILITIES & HELPERS ──────────────────────────────────────────────────────
 
-function copyEmail() {
+async function copyEmail() {
     if (!currentEmail) return;
-    navigator.clipboard.writeText(currentEmail).then(() => {
+    const ok = await copyToClipboard(currentEmail);
+
+    const mobileText = document.getElementById('mobileCopyBtnText');
+    const desktopText = document.getElementById('desktopCopyText');
+
+    if (mobileText) {
+        mobileText.textContent = 'TERSALIN ✓';
+        setTimeout(() => { mobileText.textContent = 'SALIN'; }, 1500);
+    }
+    if (desktopText) {
+        desktopText.textContent = 'TERSALIN ✓';
+        setTimeout(() => { desktopText.textContent = 'SALIN'; }, 1500);
+    }
+
+    if (ok) {
         showToast(`Alamat ${currentEmail} berhasil disalin!`, 'success');
-    }).catch(() => {
+    } else {
         showToast(currentEmail, 'info');
-    });
+    }
 }
 
 function refreshInbox() {
